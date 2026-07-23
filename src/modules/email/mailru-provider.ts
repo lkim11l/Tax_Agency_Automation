@@ -83,6 +83,7 @@ export class MailruEmailProvider implements EmailProvider {
         messageId: message.messageId,
         inReplyTo: message.inReplyTo ?? undefined,
         references: message.references,
+        attachments: message.attachments,
       });
       return {
         messageId: result.messageId,

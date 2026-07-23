@@ -239,3 +239,29 @@ read-only RLS and short-lived signed downloads. The database rechecks
 readiness, blocking fields, staleness, template approval, and fingerprint state
 before finalization. Application advisory locks, unique numbers, one running
 claim, and a versioned idempotency key protect concurrent requests.
+
+## Phase 7 contract review and delivery
+
+The delivery module owns human decisions, deterministic cover drafts, exact
+attachment verification, SMTP claims, and delivery evidence. It never renders
+or mutates contract content.
+
+```text
+private immutable contract_version
+  -> authenticated short-lived review download + audit
+  -> service-side Storage checksum/signature verification
+  -> immutable checksum-bound human review
+  -> versioned deterministic delivery draft
+  -> exact approved file re-download and checksum comparison
+  -> transactional service-only send claim
+  -> Mail.ru SMTP with DOCX attachment
+  -> transactional outgoing email + attachment metadata + statuses + audit
+```
+
+PostgreSQL advisory locks and unique attempt/idempotency constraints prevent
+concurrent duplicate sends. A known pre-DATA failure can be retried explicitly;
+an ambiguous error during/after SMTP DATA moves the draft to
+`reconciliation_required`. Review and contract file records are immutable.
+Active users receive read-only RLS; server actions alone use the secret client
+for review and delivery transitions. Phase 8 registry/reporting does not consume
+this module yet.

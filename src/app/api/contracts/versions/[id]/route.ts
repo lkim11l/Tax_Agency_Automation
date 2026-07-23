@@ -13,7 +13,7 @@ export async function GET(
     const { supabase, profile } = await getOperationalContext();
     const version = await supabase
       .from("contract_versions")
-      .select("id,storage_path,checksum,template_id,template_version,completeness_run_id,source_fingerprint,generated_by,contract:contracts!contract_versions_contract_id_fkey(id,application_id)")
+      .select("id,status,storage_path,checksum,template_id,template_version,completeness_run_id,source_fingerprint,generated_by,contract:contracts!contract_versions_contract_id_fkey(id,application_id)")
       .eq("id", id)
       .maybeSingle();
     if (version.error || !version.data) {
@@ -29,23 +29,28 @@ export async function GET(
     const relation = Array.isArray(version.data.contract)
       ? version.data.contract[0]
       : version.data.contract;
-    const audit = await createAdminClient().from("audit_events").insert({
-      actor_id: profile.id,
-      application_id: relation?.application_id ?? null,
-      entity_type: "contract_version",
-      entity_id: id,
-      action: "contract.downloaded",
-      metadata: {
-        contract_id: relation?.id ?? null,
-        version_id: id,
-        template_id: version.data.template_id,
-        template_version: version.data.template_version,
-        completeness_run_id: version.data.completeness_run_id,
-        source_fingerprint: version.data.source_fingerprint,
-        checksum: version.data.checksum,
-        generated_by: version.data.generated_by,
-      },
-    });
+    const metadata = {
+      contract_id: relation?.id ?? null,
+      version_id: id,
+      template_id: version.data.template_id,
+      template_version: version.data.template_version,
+      completeness_run_id: version.data.completeness_run_id,
+      source_fingerprint: version.data.source_fingerprint,
+      checksum: version.data.checksum,
+      generated_by: version.data.generated_by,
+    };
+    const actions = ["contract.downloaded"];
+    if (version.data.status === "awaiting_review") actions.push("contract.review_opened");
+    const audit = await createAdminClient().from("audit_events").insert(
+      actions.map((action) => ({
+        actor_id: profile.id,
+        application_id: relation?.application_id ?? null,
+        entity_type: "contract_version",
+        entity_id: id,
+        action,
+        metadata,
+      })),
+    );
     if (audit.error) {
       return NextResponse.json({ error: "Contract download audit failed." }, { status: 500 });
     }

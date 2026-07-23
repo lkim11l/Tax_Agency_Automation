@@ -241,23 +241,26 @@ Ensure only a human-approved contract is sent and preserve evidence of the actio
 
 ## Tasks
 
-- [ ] Add contract review screen.
-- [ ] Add approve action.
-- [ ] Add revision request.
-- [ ] Record approver and timestamp.
-- [ ] Block sending before approval.
-- [ ] Create editable cover email.
-- [ ] Attach the exact approved version.
-- [ ] Send through the connected provider.
-- [ ] Save provider send result.
-- [ ] Save sent message and attachment version.
-- [ ] Handle send retries safely.
-- [ ] Update application status only after confirmed send.
-- [ ] Add approval and sending tests.
+- [x] Add contract review screen.
+- [x] Add approve action.
+- [x] Add revision request.
+- [x] Record approver and timestamp.
+- [x] Block sending before approval.
+- [x] Create editable cover email.
+- [x] Attach the exact approved version.
+- [x] Send through the connected provider.
+- [x] Save provider send result.
+- [x] Save sent message and attachment version.
+- [x] Handle send retries safely.
+- [x] Update application status only after confirmed send.
+- [x] Add approval and sending tests.
 
 ## Acceptance gate
 
-An unapproved contract cannot be sent. An approved contract is sent once, the exact file is preserved, and the audit log identifies who approved and sent it.
+An unapproved contract cannot be sent. An approved contract is sent once, the
+exact file is preserved, and the audit log identifies who approved and sent it.
+Implementation, SMTP acceptance, and the independently downloaded external
+attachment SHA-256 comparison passed.
 
 ---
 

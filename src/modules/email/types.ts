@@ -54,6 +54,11 @@ export type OutboundEmail = {
   messageId: string;
   inReplyTo?: string | null;
   references?: string[];
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  }>;
 };
 
 export type OutboundSendResult = {

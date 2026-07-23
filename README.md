@@ -330,3 +330,23 @@ acceptance checklist.
 ## Status
 
 See `docs/CURRENT_SPRINT.md`.
+
+## Contract review and delivery
+
+Phase 7 adds human approve/reject/return controls and versioned delivery drafts
+to the application detail page. Approval and SMTP delivery are bound to the
+exact private DOCX checksum. Repeated identical sends return the persisted
+result; ambiguous SMTP outcomes require operator reconciliation.
+
+Run hosted tests and the synthetic live workflow:
+
+```bash
+npm run test:integration
+npm run test:contract-delivery:live
+```
+
+The live command never uses customer documents. If it reports
+`manual_receipt_verification_required`, follow the exact subject/address/file
+instruction and rerun it; success requires the received DOCX SHA-256 to match.
+See `docs/CONTRACT_REVIEW.md`, `docs/CONTRACT_DELIVERY.md`, and
+`docs/CONTRACT_DELIVERY_OPERATIONS.md`.

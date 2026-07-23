@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ApplicationForm } from "@/components/application-form";
+import { ContractDeliveryPanel } from "@/components/contract-delivery-panel";
 import { Feedback } from "@/components/feedback";
 import {
   appendNoteAction,
@@ -43,6 +44,7 @@ import {
   generateContractAction,
 } from "@/modules/contracts/actions";
 import { getContractState } from "@/modules/contracts/repository";
+import { getDeliveryState } from "@/modules/delivery/repository";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -73,6 +75,7 @@ export default async function ApplicationDetailPage({
     extractionData,
     clarification,
     contractState,
+    deliveryState,
   ] =
     await Promise.all([
       getApplicationActivity(id),
@@ -84,6 +87,7 @@ export default async function ApplicationDetailPage({
       getApplicationExtraction(id),
       getClarificationState(id),
       getContractState(id),
+      getDeliveryState(id),
     ]);
 
   return (
@@ -180,7 +184,7 @@ export default async function ApplicationDetailPage({
 
       <section className="panel section-gap">
         <div className="page-heading">
-          <div><h3>Contract</h3><p className="muted">Phase 6 generates immutable DOCX versions for human review. No client sending is available here.</p></div>
+          <div><h3>Contract review and delivery</h3><p className="muted">Phase 7 binds every human decision and SMTP delivery to one immutable DOCX checksum.</p></div>
         </div>
         {contractState.templates.length === 0 ? <p className="muted">No approved active DOCX template is available.</p> : (
           <form className="stack">
@@ -206,11 +210,18 @@ export default async function ApplicationDetailPage({
             <strong>{contract.contract_number ?? "Number pending"} - {contract.status}</strong>
             <p className="muted">{contract.template?.[0]?.name}</p>
             <ul className="timeline">{(contract.versions ?? []).sort((a, b) => b.version_number - a.version_number).map((version) => (
-              <li key={version.id}><strong>Version {version.version_number} - {version.status}</strong><span>{version.generated_filename} - {version.file_size} bytes - {version.checksum.slice(0, 12)}</span><span>Completeness: {version.completeness_run_id}; extraction: {version.extraction_run_id ?? "manual/current values"}</span><span>{new Date(version.generated_at).toLocaleString()}</span><a href={`/api/contracts/versions/${version.id}`}>Download DOCX</a></li>
+              <li key={version.id}><strong>Version {version.version_number} - {version.status}</strong><span>{contract.current_version_id === version.id ? "Current version" : "Historical version"}</span><span>{version.generated_filename} - {version.file_size} bytes - {version.checksum.slice(0, 12)}</span><span>Completeness: {version.completeness_run_id}; extraction: {version.extraction_run_id ?? "manual/current values"}</span><span>{new Date(version.generated_at).toLocaleString()}</span><a href={`/api/contracts/versions/${version.id}`}>Download DOCX</a></li>
             ))}</ul>
           </article>
         ))}
         {contractState.runs.some((run) => run.status === "failed") ? <details><summary>Generation failures</summary><ul>{contractState.runs.filter((run) => run.status === "failed").map((run) => <li key={run.id}>{run.safe_error_code ?? "GENERATION_FAILED"}</li>)}</ul></details> : null}
+        <ContractDeliveryPanel
+          applicationId={application.id}
+          versions={contractState.contracts.flatMap((contract) => contract.versions ?? [])}
+          reviews={deliveryState.reviews}
+          drafts={deliveryState.drafts}
+          attempts={deliveryState.attempts}
+        />
       </section>
 
       <section className="panel section-gap">

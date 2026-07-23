@@ -281,3 +281,29 @@ Direct OOXML replacement preserves customer-approved text/formatting without a
 template-expression engine. Database claims close concurrency and idempotency
 gaps between web processes. PDF conversion remains outside production until a
 stable deployment renderer is justified.
+
+## ADR-017 — Checksum-bound human approval and conservative SMTP delivery
+
+Status: Accepted
+
+Decision:
+Store one immutable human decision for each immutable contract version and bind
+it to both the generated SHA-256 and source fingerprint. Require an audited
+private review download/open before the server can approve, reject, or return a
+version. A newer version always requires its own decision.
+
+Create immutable-version-linked, versioned delivery drafts. Before SMTP, download
+the approved private DOCX again, validate its ZIP signature, and compare its
+SHA-256 with both version and approval records. Claim delivery in a
+service-role-only PostgreSQL function using advisory locks and a key composed of
+version ID, checksum, recipient, and draft version. Persist the outgoing email,
+SMTP result, and exact attachment metadata atomically after provider acceptance.
+Known pre-delivery failures may be explicitly retried; ambiguous DATA-stage
+outcomes require reconciliation and block automatic retry.
+
+Reason:
+Approval is meaningful only for the bytes the reviewer inspected. Database
+claims close double-send races across server processes, while a stable Message-ID
+and honest uncertainty state minimize duplicate client communication. Keeping
+draft text deterministic and SMTP credentials server-only preserves
+auditability without introducing AI or Phase 8 concerns.

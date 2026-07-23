@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 6 — Contract generation (complete)
+Phase 7 — Contract approval and delivery (complete)
 
 ## Sprint goal
 
-Generate private immutable DOCX versions from approved templates and confirmed
-application data, with mandatory human review and no client delivery.
+Approve one exact immutable DOCX version, deliver it once through Mail.ru SMTP,
+and preserve checksum-bound evidence without starting Phase 8.
 
 ## Phase 1
 
@@ -268,6 +268,36 @@ Acceptance completed on 2026-07-23 against the linked hosted Supabase project:
 - lint, strict typecheck, production build, live acceptance, and
   zero-vulnerability audit passed.
 
+## Phase 7 implementation
+
+- [x] Add checksum-bound immutable review records and approve/reject/return actions.
+- [x] Require an authenticated review download/open event before a decision.
+- [x] Block unapproved, rejected, superseded, void, stale, or mismatched versions.
+- [x] Add deterministic, editable, versioned delivery drafts.
+- [x] Validate and audit confirmed/manual recipients without exposing message bodies.
+- [x] Attach the exact private DOCX after signature and two-checksum verification.
+- [x] Add service-only transactional delivery claims and concurrent-send protection.
+- [x] Persist SMTP attempts, outgoing email, attachment metadata, and safe errors.
+- [x] Treat ambiguous SMTP outcomes as reconciliation-required and never auto-retry.
+- [x] Update version, contract, application, status history, and audit only after SMTP success.
+- [x] Apply hosted migrations 012 and 013 without reset.
+- [x] Pass Phase 7 unit/migration-contract and hosted security/persistence tests.
+- [x] Send one synthetic approved DOCX through the configured Mail.ru SMTP.
+- [x] Verify repeated identical send is a cache hit and creates no second SMTP delivery.
+- [x] Download the attachment from the external recipient mailbox and match its SHA-256.
+- [x] Run the final complete validation suite after received-attachment verification.
+- [x] Commit and push Phase 7.
+
+## Phase 7 acceptance
+
+The synthetic contract for `REQ-2026-000172` was rejected, regenerated,
+checksum-approved, and accepted once by Mail.ru SMTP. The persisted version,
+review, draft, outgoing email, attachment metadata, Message-ID, application
+status, contract status, status history, audit, RLS, and duplicate-send cache
+have been verified. The external recipient returned the unchanged DOCX, and its
+independently calculated SHA-256 matched the approved version exactly.
+
 ## Next phase rule
 
-Phase 7 remains forbidden until a separate direct user instruction.
+Phase 8 remains forbidden until Phase 7 is fully accepted and a separate direct
+user instruction starts it.
