@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createHash } from "node:crypto";
 import { getOperationalContext } from "@/lib/auth/context";
 import { createAdminClient } from "@/lib/supabase/admin.server";
 import { changeApplicationStatus } from "@/modules/applications/repository";
@@ -19,6 +18,7 @@ import {
   draftTransition,
   editDraftState,
 } from "./workflow";
+import { computeExtractionFingerprint } from "./fingerprint";
 
 export type WorkflowExecution = {
   actorId: string;
@@ -100,22 +100,16 @@ export async function recalculateCompleteness(input: {
     }),
   );
   const evaluation = evaluateCompleteness(ruleSet, fields);
-  const extractionFingerprint = createHash("sha256")
-    .update(
-      JSON.stringify(
-        [...fields]
-          .sort((left, right) => left.fieldName.localeCompare(right.fieldName))
-          .map((field) => ({
-            fieldName: field.fieldName,
-            value: field.value,
-            confidence: field.confidence,
-            requiresReview: field.requiresReview,
-            conflictDetected: field.conflictDetected,
-            manuallyCorrected: field.manuallyCorrected,
-          })),
-      ),
-    )
-    .digest("hex");
+  const extractionFingerprint = computeExtractionFingerprint(
+    fields.map((field) => ({
+      fieldName: field.fieldName,
+      value: field.value,
+      confidence: field.confidence,
+      requiresReview: field.requiresReview,
+      conflictDetected: field.conflictDetected,
+      manuallyCorrected: field.manuallyCorrected,
+    })),
+  );
   const run = await admin
     .from("completeness_runs")
     .insert({

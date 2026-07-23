@@ -7,11 +7,30 @@ export type TemplateListItem = {
   name: string;
   description: string | null;
   version: string;
-  status: "draft" | "approved" | "archived";
+  status: "draft" | "awaiting_approval" | "approved" | "inactive" | "archived";
   required_fields: string[];
   storage_path: string | null;
   is_active: boolean;
   updated_at: string;
+  code: string | null;
+  template_type: "services" | "consulting" | "supply" | null;
+  checksum: string | null;
+  original_filename: string | null;
+  mime_type: string | null;
+  required_rule_set: string | null;
+  placeholder_schema_version: string | null;
+  validation_report: {
+    valid?: boolean;
+    errors?: string[];
+    warnings?: string[];
+    placeholders?: string[];
+    duplicates?: string[];
+    parts?: string[];
+  };
+  approved_by: string | null;
+  approved_at: string | null;
+  creator?: { email: string; full_name: string | null }[] | null;
+  approver?: { email: string; full_name: string | null }[] | null;
 };
 
 export async function listTemplates() {
@@ -19,7 +38,7 @@ export async function listTemplates() {
   const { data, error } = await supabase
     .from("contract_templates")
     .select(
-      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at",
+      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
     )
     .order("name");
 
@@ -32,7 +51,9 @@ export async function listTemplates() {
 
 export async function listTemplateOptions() {
   const templates = await listTemplates();
-  return templates.map(({ id, name, version }) => ({ id, name, version }));
+  return templates
+    .filter((template) => template.status === "approved" && template.is_active)
+    .map(({ id, name, version }) => ({ id, name, version }));
 }
 
 export async function getTemplate(id: string) {
@@ -40,7 +61,7 @@ export async function getTemplate(id: string) {
   const { data, error } = await supabase
     .from("contract_templates")
     .select(
-      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at",
+      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
     )
     .eq("id", id)
     .maybeSingle();

@@ -38,6 +38,11 @@ import {
 } from "@/modules/clarification/actions";
 import { completenessRuleSets } from "@/modules/clarification/rules";
 import { getClarificationState } from "@/modules/clarification/service";
+import {
+  checkContractEligibilityAction,
+  generateContractAction,
+} from "@/modules/contracts/actions";
+import { getContractState } from "@/modules/contracts/repository";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -67,6 +72,7 @@ export default async function ApplicationDetailPage({
     documentData,
     extractionData,
     clarification,
+    contractState,
   ] =
     await Promise.all([
       getApplicationActivity(id),
@@ -77,6 +83,7 @@ export default async function ApplicationDetailPage({
       listApplicationDocuments(id),
       getApplicationExtraction(id),
       getClarificationState(id),
+      getContractState(id),
     ]);
 
   return (
@@ -169,6 +176,41 @@ export default async function ApplicationDetailPage({
             <dd>{activity.counts.contracts}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="panel section-gap">
+        <div className="page-heading">
+          <div><h3>Contract</h3><p className="muted">Phase 6 generates immutable DOCX versions for human review. No client sending is available here.</p></div>
+        </div>
+        {contractState.templates.length === 0 ? <p className="muted">No approved active DOCX template is available.</p> : (
+          <form className="stack">
+            <input type="hidden" name="application_id" value={application.id} />
+            <label className="field">Approved template<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} - {template.template_type}</option>)}</select></label>
+            <div className="inline-actions">
+              <button formAction={checkContractEligibilityAction}>Check readiness</button>
+              <button formAction={generateContractAction}>Generate DOCX</button>
+            </div>
+          </form>
+        )}
+        {contractState.isAdmin && contractState.templates.length > 0 && contractState.contracts.length > 0 ? (
+          <form action={generateContractAction} className="stack section-gap">
+            <input type="hidden" name="application_id" value={application.id} />
+            <label className="field">Approved template<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version}</option>)}</select></label>
+            <input type="hidden" name="force" value="1" />
+            <label className="field">Force-regeneration reason<input name="force_reason" required minLength={2} maxLength={1000} /></label>
+            <button>Force new immutable version</button>
+          </form>
+        ) : null}
+        {contractState.contracts.map((contract) => (
+          <article className="document-card section-gap" key={contract.id}>
+            <strong>{contract.contract_number ?? "Number pending"} - {contract.status}</strong>
+            <p className="muted">{contract.template?.[0]?.name}</p>
+            <ul className="timeline">{(contract.versions ?? []).sort((a, b) => b.version_number - a.version_number).map((version) => (
+              <li key={version.id}><strong>Version {version.version_number} - {version.status}</strong><span>{version.generated_filename} - {version.file_size} bytes - {version.checksum.slice(0, 12)}</span><span>Completeness: {version.completeness_run_id}; extraction: {version.extraction_run_id ?? "manual/current values"}</span><span>{new Date(version.generated_at).toLocaleString()}</span><a href={`/api/contracts/versions/${version.id}`}>Download DOCX</a></li>
+            ))}</ul>
+          </article>
+        ))}
+        {contractState.runs.some((run) => run.status === "failed") ? <details><summary>Generation failures</summary><ul>{contractState.runs.filter((run) => run.status === "failed").map((run) => <li key={run.id}>{run.safe_error_code ?? "GENERATION_FAILED"}</li>)}</ul></details> : null}
       </section>
 
       <section className="panel section-gap">

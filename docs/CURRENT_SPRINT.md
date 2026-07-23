@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 5 — Completeness and clarification (complete)
+Phase 6 — Contract generation (complete)
 
 ## Sprint goal
 
-Calculate evidence-based completeness and run a deterministic, human-approved
-clarification loop without generating a contract.
+Generate private immutable DOCX versions from approved templates and confirmed
+application data, with mandatory human review and no client delivery.
 
 ## Phase 1
 
@@ -225,9 +225,49 @@ Acceptance completed on 2026-07-23 using the dedicated synthetic application
 - lint, strict typecheck, production build, live acceptance, and zero-vulnerability
   audit passed.
 
-Phase 6 remains forbidden.
+## Phase 6 implementation
+
+- [x] Add three template types and immutable version metadata.
+- [x] Add private DOCX upload, checksum, validation report, approval, lifecycle,
+  and audit.
+- [x] Add `contract-placeholders-v1` discovery in paragraphs, tables,
+  headers/footers, and split Word runs.
+- [x] Block malformed archives, unsafe ZIP paths/limits, macros, DOCM, XML
+  entities, unknown/missing placeholders, and unsupported placements.
+- [x] Add `contract-mapping-v1`, Russian dates/amounts, and deterministic RUB
+  amount words without invented legal values.
+- [x] Add server-side readiness/fingerprint/staleness/review checks and required
+  rendering preview.
+- [x] Add advisory-lock `TAA-YYYY-NNNNNN` numbering, idempotent claims, safe
+  concurrent rejection, and admin force reason.
+- [x] Add private output Storage, cleanup on failure, immutable versions,
+  `awaiting_review`, signed download, status history, and audit.
+- [x] Add plain template/application UI without approval or delivery actions.
+- [x] Apply hosted migrations 010 and 011 without remote reset.
+- [x] Pass synthetic blocked and generated live scenarios, cache hit, concurrent
+  request, force version 2, specialist access, and anonymous denial.
+- [x] Open the output in Word, export it independently, and visually inspect the
+  A4 page, table, header/footer, values, and signature area.
+
+## Phase 6 acceptance
+
+Acceptance completed on 2026-07-23 against the linked hosted Supabase project:
+
+- incomplete synthetic data was denied before contract number allocation;
+- the approved synthetic services template passed validation and remained
+  distinct from any real customer or legally approved template;
+- `REQ-2026-000172` generated contract `TAA-2026-000004`;
+- concurrent identical requests produced one version and one safe running
+  rejection, followed by a cache hit;
+- admin force regeneration created immutable version 2 and preserved version 1;
+- the latest checksum matched the downloaded private object;
+- active specialist download passed and anonymous access was denied;
+- generated status remained `awaiting_review`, with no sending capability;
+- all required generation/cache/failure/regeneration audits persisted;
+- 128 local unit/contract tests and 40 hosted integration tests passed;
+- lint, strict typecheck, production build, live acceptance, and
+  zero-vulnerability audit passed.
 
 ## Next phase rule
 
-Phase 6 must not begin without completed Phase 5 acceptance and a separate
-direct user instruction.
+Phase 7 remains forbidden until a separate direct user instruction.

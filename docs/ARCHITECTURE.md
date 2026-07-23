@@ -212,3 +212,30 @@ candidates. `extracted_field_corrections` is immutable correction history.
 Database advisory locks prevent concurrent duplicate runs, and a successful
 fingerprint cache avoids repeated token use. Automatic template completeness is
 intentionally outside this module and remains Phase 5.
+
+## Phase 6 versioned contract generation
+
+Templates owns immutable private DOCX objects, validation reports, approval
+metadata, and lifecycle. Contracts owns explicit placeholder rendering,
+deterministic formatting, eligibility, numbering, claims, immutable versions,
+and signed downloads.
+
+```text
+current extraction + latest completeness fingerprint
+  -> server-side eligibility and required-value preview
+  -> advisory-lock generation claim and sequence number
+  -> template checksum verification
+  -> OOXML text render (document/table/header/footer/split runs)
+  -> output validation + checksum + private Storage upload
+  -> transactional version finalize + status history + audit
+  -> awaiting_review (Phase 7 boundary)
+```
+
+`fflate` performs bounded ZIP inspection while unrelated OOXML parts remain
+unchanged. Only the fixed `{{name}}` schema is accepted; macros, DOCM,
+DOCTYPE/entities, unsafe paths, expressions, and unknown placeholders are
+blocked. Mutation RPCs are server-role-only. Active specialists/admins have
+read-only RLS and short-lived signed downloads. The database rechecks
+readiness, blocking fields, staleness, template approval, and fingerprint state
+before finalization. Application advisory locks, unique numbers, one running
+claim, and a versioned idempotency key protect concurrent requests.

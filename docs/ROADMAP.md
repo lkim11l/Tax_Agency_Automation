@@ -214,18 +214,18 @@ Generate a correct DOCX from an approved template and validated application data
 
 ## Tasks
 
-- [ ] Define template variable convention.
-- [ ] Add template upload and metadata.
-- [ ] Support up to three templates.
-- [ ] Define required fields per template.
-- [ ] Implement deterministic template selection or manual selection.
-- [ ] Validate all template variables.
-- [ ] Generate DOCX.
-- [ ] Fail visibly on unresolved required variables.
-- [ ] Save immutable generated versions.
-- [ ] Add download.
-- [ ] Add optional PDF conversion only if stable.
-- [ ] Add generation tests for every approved template.
+- [x] Define a versioned explicit template variable convention.
+- [x] Add private template upload, validation, metadata, approval, and versioning.
+- [x] Support the three MVP types: services, consulting, and supply.
+- [x] Define required fields and completeness rule set per template.
+- [x] Add explicit manual approved-template selection.
+- [x] Validate all variables, split runs, ZIP/XML safety, and macros.
+- [x] Generate DOCX without changing unrelated OOXML.
+- [x] Fail visibly before numbering on unresolved required rendered values.
+- [x] Save immutable generated versions with source/version fingerprints.
+- [x] Add authenticated short-lived signed download and audit.
+- [x] Keep optional PDF conversion disabled until a stable deployment renderer exists.
+- [x] Add synthetic unit, hosted integration, concurrency, and live generation tests.
 
 ## Acceptance gate
 

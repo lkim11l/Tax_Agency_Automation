@@ -30,9 +30,9 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 through Phase 4 are complete. Structured extraction passed hosted
-database/RLS, real OpenAI Structured Outputs, source attribution, correction,
-cache, prompt-injection, and synthetic evaluation acceptance.
+Phase 0 through Phase 6 are complete. The current flow reaches a private,
+immutable DOCX contract version in `awaiting_review`; approval and delivery are
+reserved for Phase 7.
 
 ## Start here
 
@@ -242,6 +242,7 @@ npm run test:documents:live
 npm run test:extraction:live
 npm run test:extraction:eval
 npm run test:clarification:live
+npm run test:contracts:live
 npm run build
 npm audit
 ```
@@ -288,6 +289,23 @@ headers and trigger delta-only parsing/extraction plus a new completeness run.
 See `docs/CLARIFICATION_WORKFLOW.md` for operation, retry, idempotency, and the
 synthetic live acceptance command.
 
+## Contract templates and generation
+
+Phase 6 accepts versioned DOCX templates of type `services`, `consulting`, or
+`supply`. Administrators upload and approve templates at `/templates`.
+Specialists and administrators check eligibility and generate from the
+application detail page. Generated files use private Storage, immutable
+versions, and status `awaiting_review`; no Phase 6 action sends to a client.
+
+Run the synthetic hosted acceptance:
+
+```bash
+npm run test:contracts:live
+```
+
+See `docs/CONTRACT_TEMPLATES.md`, `docs/CONTRACT_GENERATION.md`, and
+`docs/CONTRACT_OPERATIONS.md`.
+
 Hosted integration tests require three dedicated Dashboard users in `.env.local`:
 
 ```text
@@ -300,8 +318,9 @@ SUPABASE_TEST_INACTIVE_PASSWORD
 ```
 
 Their `profiles` roles/states must be admin/active, specialist/active, and
-specialist/inactive. The integration suite uses only user sessions and the
-publishable/legacy anon key for RLS assertions. It does not use service-role.
+specialist/inactive. RLS assertions use user sessions and the
+publishable/legacy anon key. Synthetic server-owned fixture setup uses
+`SUPABASE_SECRET_KEY`; tests never use that key to claim that RLS passed.
 
 The local Supabase CLI configuration is in `supabase/config.toml`. It disables
 public sign-up and anonymous sign-in. Phase 1 migration and seed instructions are

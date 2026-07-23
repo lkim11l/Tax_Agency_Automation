@@ -252,7 +252,32 @@ token use and retains reviewed data.
 
 Do not resolve without evidence or user input:
 
-- DOCX generation library;
 - PDF conversion strategy;
 - deployment target;
 - background job mechanism.
+
+## ADR-016 — Explicit OOXML rendering and database-owned contract claims
+
+Status: Accepted
+
+Decision:
+Use `fflate` 0.8.3 to inspect and rewrite only WordprocessingML text nodes in
+DOCX document/header/footer parts. Use a fixed versioned `{{placeholder}}`
+allow-list, join adjacent text runs for discovery, and redistribute replacement
+text without rebuilding paragraphs, tables, styles, relationships, or section
+properties. Block macros, DOCM, DOCTYPE/entities, unsafe ZIP paths/limits,
+unsupported placeholder locations, and invalid signatures.
+
+Keep Russian dates, amounts, and RUB words in `contract-mapping-v1`. Allocate
+`TAA-YYYY-NNNNNN` numbers and claims in service-role-only PostgreSQL functions
+with application advisory locks. Persist the exact template, source
+fingerprint, completeness run, mapping/schema versions, rendered snapshot,
+checksum, and private path in immutable versions. Identical requests return the
+completed version; admin force requires a reason and appends a version. Every
+new version remains `awaiting_review`.
+
+Reason:
+Direct OOXML replacement preserves customer-approved text/formatting without a
+template-expression engine. Database claims close concurrency and idempotency
+gaps between web processes. PDF conversion remains outside production until a
+stable deployment renderer is justified.

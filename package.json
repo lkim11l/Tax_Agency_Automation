@@ -28,7 +28,8 @@
     "test:documents:live": "node --env-file=.env.local --import tsx scripts/documents-live.ts",
     "test:extraction:live": "node --env-file=.env.local --import tsx scripts/extraction-live.ts",
     "test:extraction:eval": "node --env-file=.env.local --import tsx scripts/extraction-eval.ts",
-    "test:clarification:live": "node --env-file=.env.local --import tsx scripts/clarification-live.ts"
+    "test:clarification:live": "node --env-file=.env.local --import tsx scripts/clarification-live.ts",
+    "test:contracts:live": "node --env-file=.env.local --import tsx scripts/contracts-live.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",
@@ -36,6 +37,7 @@
     "cheerio": "1.0.0",
     "csv-parse": "7.0.1",
     "exceljs": "4.4.0",
+    "fflate": "0.8.3",
     "imapflow": "1.4.9",
     "mailparser": "3.9.14",
     "mammoth": "1.12.0",
@@ -59,7 +61,6 @@
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "latest",
     "eslint-config-next": "16.2.11",
-    "fflate": "0.8.3",
     "supabase": "^2.109.1",
     "tsx": "4.20.6",
     "typescript": "6.0.3",

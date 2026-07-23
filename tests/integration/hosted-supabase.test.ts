@@ -47,6 +47,20 @@ function client(): SupabaseClient {
   );
 }
 
+function serviceClient(): SupabaseClient {
+  const key =
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) throw new Error("Missing hosted integration service credential.");
+  return createClient(required("NEXT_PUBLIC_SUPABASE_URL"), key, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+}
+
 async function signIn(
   instance: SupabaseClient,
   emailName:
@@ -197,8 +211,15 @@ describe.sequential("hosted Supabase Phase 1 acceptance", () => {
     await freshClient.auth.signOut();
   });
 
-  it("creates and updates template metadata", async () => {
-    const { data, error } = await admin
+  it("keeps template mutations server-only while persisting metadata", async () => {
+    expect((await admin.from("contract_templates").insert({
+      name: `Forbidden Template ${runId}`,
+      version: "1.0",
+      required_fields: [],
+      variable_schema: {},
+    })).error).not.toBeNull();
+    const service = serviceClient();
+    const { data, error } = await service
       .from("contract_templates")
       .insert({
         name: `Integration Template ${runId}`,
@@ -215,7 +236,7 @@ describe.sequential("hosted Supabase Phase 1 acceptance", () => {
     expect(error).toBeNull();
     templateId = data!.id;
 
-    const updated = await admin
+    const updated = await service
       .from("contract_templates")
       .update({ description: "Updated metadata-only integration test" })
       .eq("id", templateId)
