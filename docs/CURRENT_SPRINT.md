@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 3 — Document parsing (complete)
+Phase 4 — Structured AI extraction (complete)
 
 ## Sprint goal
 
-Produce normalized, source-referenced text from private attachments without
-executing active content or losing unsupported/failed files.
+Extract source-referenced contract facts from normalized text without inventing
+missing values or sending unsupported/OCR content to AI.
 
 ## Phase 1
 
@@ -96,13 +96,12 @@ in Git.
 
 ## Explicitly excluded
 
-- AI extraction
 - OCR execution (images and scanned PDFs are review-required)
-- Clarification email
+- Phase 5 completeness and clarification email
 - DOCX generation
 - Contract delivery
 - Reporting and XLSX export
-- Phase 4 or later implementation
+- Phase 5 or later implementation
 
 ## Phase 3 implementation
 
@@ -148,7 +147,45 @@ private hosted Supabase Storage, and linked hosted database:
 - 84 unit/contract tests and 28 hosted integration tests passed;
 - lint, strict typecheck, production build, and zero-vulnerability audit passed.
 
+## Phase 4 implementation
+
+- [x] Add versioned strict Zod schema and extraction prompt.
+- [x] Verify official OpenAI SDK 6.49.0 and exact `gpt-5.6-sol` access.
+- [x] Add deterministic identifiers, contacts, dates, amount, and currency parsing.
+- [x] Add marker-aware relevant-fragment selection, limits, chunking, and merge.
+- [x] Exclude binary, image, unsupported, and OCR_REQUIRED inputs.
+- [x] Add Responses API Structured Outputs and local Zod/source/format validation.
+- [x] Add null behavior, deterministic confidence, dedupe, and conflict detection.
+- [x] Add durable runs, usage, safe errors, conflicts, and current fields.
+- [x] Add advisory-lock concurrency and versioned fingerprint cache.
+- [x] Add specialist/admin correction, candidate selection, manual null, and history.
+- [x] Add one-application and admin batch UI/CLI actions.
+- [x] Add RLS and required extraction audit actions.
+- [x] Add 105 local unit/contract tests and 33 hosted integration tests.
+- [x] Pass real OpenAI/Supabase live extraction acceptance.
+- [x] Pass all 15 synthetic evaluation scenarios without hallucinated missing fields.
+
+## Phase 4 acceptance
+
+Acceptance completed on 2026-07-23 against the linked hosted Supabase project
+and real OpenAI Responses API:
+
+- `gpt-5.6-sol` access and strict schema output passed;
+- organization, signer, subject, amount/currency, dates, and payment terms persisted;
+- missing values remained null and conflicting email/document amounts were recorded;
+- every accepted non-null value retained source ID, marker, and short excerpt;
+- manual correction/history persisted and survived a fresh authenticated session;
+- an unchanged repeat was a cache hit with no second model call;
+- concurrent run claims, specialist/admin/inactive/anonymous RLS, and audit passed;
+- OCR_REQUIRED content and images produced zero AI calls;
+- the 15-case evaluation achieved 100% schema validity, normalized/exact match,
+  missing precision, conflict detection, and source attribution, with zero
+  hallucinations;
+- final live usage was 10,909 input and 4,180 output tokens;
+- lint, strict typecheck, 105 unit tests, 33 hosted integration tests, production
+  build, and zero-vulnerability audit passed.
+
 ## Next phase rule
 
-Phase 4 must not begin without completed Phase 3 live acceptance and a separate
+Phase 5 must not begin without completed Phase 4 acceptance and a separate
 direct user instruction.

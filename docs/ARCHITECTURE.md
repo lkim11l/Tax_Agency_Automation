@@ -187,3 +187,28 @@ already validated image/PDF bytes and returns `OcrResult` with page data and
 quality metrics. No provider is configured in Phase 3. This seam supports a
 future isolated local process or private Linux worker without changing
 `DocumentParser`, parser registry, or persisted workflow states.
+
+## Phase 4 structured extraction
+
+The extraction module remains inside the modular monolith. OpenAI is called only
+from server actions or trusted CLI processes; browser code never imports the SDK
+or receives the API/server key.
+
+```text
+email plain text + status=parsed document text + current cards
+  -> deterministic candidates and validators
+  -> bounded source-marker-aware fragments
+  -> chunked Responses API Structured Outputs
+  -> local Zod validation and source/format rejection
+  -> deterministic merge and conflict detection
+  -> service-role atomic persistence
+  -> authenticated RLS read and correction RPC
+```
+
+`extraction_runs` records fingerprints, versions, request IDs, usage, duration,
+status, and safe errors without prompt/document/model-output bodies.
+`extracted_fields` is the current view. `extraction_conflicts` records unresolved
+candidates. `extracted_field_corrections` is immutable correction history.
+Database advisory locks prevent concurrent duplicate runs, and a successful
+fingerprint cache avoids repeated token use. Automatic template completeness is
+intentionally outside this module and remains Phase 5.

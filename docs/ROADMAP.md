@@ -150,25 +150,31 @@ Extract contract and counterparty data without fabricating missing information.
 
 ## Tasks
 
-- [ ] Define Zod or equivalent extraction schema.
-- [ ] Create versioned extraction prompt.
-- [ ] Extract organization details.
-- [ ] Extract signer details.
-- [ ] Extract contract subject.
-- [ ] Extract amount and currency.
-- [ ] Extract dates and payment terms.
-- [ ] Store source references.
-- [ ] Store confidence/review flags.
-- [ ] Return null for missing values.
-- [ ] Detect conflicting values.
-- [ ] Allow manual correction.
-- [ ] Preserve correction history.
-- [ ] Add safe evaluation fixtures.
-- [ ] Add extraction tests.
+- [x] Define Zod or equivalent extraction schema.
+- [x] Create versioned extraction prompt.
+- [x] Extract organization details.
+- [x] Extract signer details.
+- [x] Extract contract subject.
+- [x] Extract amount and currency.
+- [x] Extract dates and payment terms.
+- [x] Store source references.
+- [x] Store confidence/review flags.
+- [x] Return null for missing values.
+- [x] Detect conflicting values.
+- [x] Allow manual correction.
+- [x] Preserve correction history.
+- [x] Add safe evaluation fixtures.
+- [x] Add extraction tests.
 
 ## Acceptance gate
 
 Given approved test documents, the system produces schema-valid data, flags missing/conflicting values, and never invents absent required values.
+
+Acceptance status: passed on 2026-07-23 against the linked hosted Supabase
+project and real OpenAI Responses API. Strict schema/local validation, source
+attribution, null/conflict behavior, correction history, cache/concurrency,
+RLS/audit, OCR exclusion, prompt-injection defense, and a 15-case synthetic
+evaluation were verified.
 
 ---
 

@@ -17,13 +17,17 @@
     "documents:parse": "node --env-file=.env.local --import tsx scripts/documents-parse.ts",
     "documents:parse-pending": "node --env-file=.env.local --import tsx scripts/documents-parse-pending.ts",
     "documents:fixtures": "node --import tsx scripts/documents-generate-fixtures.ts",
+    "extraction:run": "node --env-file=.env.local --import tsx scripts/extraction-run.ts",
+    "extraction:pending": "node --env-file=.env.local --import tsx scripts/extraction-pending.ts",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "test:email:live": "node --env-file=.env.local --import tsx scripts/email-live.ts",
-    "test:documents:live": "node --env-file=.env.local --import tsx scripts/documents-live.ts"
+    "test:documents:live": "node --env-file=.env.local --import tsx scripts/documents-live.ts",
+    "test:extraction:live": "node --env-file=.env.local --import tsx scripts/extraction-live.ts",
+    "test:extraction:eval": "node --env-file=.env.local --import tsx scripts/extraction-eval.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",
@@ -36,6 +40,7 @@
     "mammoth": "1.12.0",
     "next": "16.2.11",
     "nodemailer": "9.0.3",
+    "openai": "6.49.0",
     "pdfjs-dist": "4.10.38",
     "react": "19.2.8",
     "react-dom": "19.2.8",

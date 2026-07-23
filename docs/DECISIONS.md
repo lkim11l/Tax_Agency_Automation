@@ -198,6 +198,33 @@ untrusted complex files. Deferring the engine keeps Phase 3 reproducible while
 the provider contract prevents future OCR from coupling the working DOCX, PDF,
 XLSX, TXT, and CSV parsers to one executable or deployment platform.
 
+## ADR-014 — Versioned OpenAI Structured Outputs extraction
+
+Status: Accepted
+
+Decision:
+Use the official OpenAI JavaScript SDK 6.49.0 and Responses API with the exact
+`gpt-5.6-sol` model identifier, `contract-extraction-v1` prompt, and
+`contract-extraction-schema-v1` Zod schema. Generate strict JSON Schema through
+the SDK helper, then apply an independent local Zod parse plus deterministic
+source, identifier, date, amount, and currency validation.
+
+Send only bounded normalized text fragments with Phase 3 markers. Never send
+binary files, images, OCR_REQUIRED attachments, full application archives,
+credentials, or external lookup results. Persist version/usage metadata and
+safe errors, not full prompts or model outputs.
+
+Use PostgreSQL advisory locking and versioned input fingerprints for concurrent
+idempotency and token cache. Preserve manual corrections in current fields and
+append immutable correction history. Legal-value conflicts always require
+manual selection.
+
+Reason:
+Strict structured output provides a stable transport shape, while local
+validation and source enforcement defend against hallucination, malformed
+identifiers, and document prompt injection. The provider boundary and persisted
+versions keep future model changes measurable and reviewable.
+
 ## Pending decisions
 
 Do not resolve without evidence or user input:

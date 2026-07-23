@@ -30,9 +30,9 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 through Phase 3 are complete. Secure document parsing passed hosted
-database/RLS, private Storage, real Mail.ru, idempotency, and persistence
-acceptance.
+Phase 0 through Phase 4 are complete. Structured extraction passed hosted
+database/RLS, real OpenAI Structured Outputs, source attribution, correction,
+cache, prompt-injection, and synthetic evaluation acceptance.
 
 ## Start here
 
@@ -53,6 +53,7 @@ Codex and developers must read:
 - Supabase PostgreSQL, Auth, and Storage
 - Supabase CLI 2.109.1
 - Zod 4.4.3
+- OpenAI JavaScript SDK 6.49.0 and Responses API
 - Vitest 4.1.10
 - ESLint 9.39.5
 - GitHub Actions
@@ -99,6 +100,11 @@ publishable key.
 Set `SUPABASE_SECRET_KEY` only for server-side email ingestion. The legacy
 `SUPABASE_SERVICE_ROLE_KEY` name is temporarily accepted. Never expose either
 through a `NEXT_PUBLIC_*` variable or commit `.env.local`.
+
+Set `OPENAI_API_KEY` only on the server for Phase 4 extraction. The application
+uses the exact `gpt-5.6-sol` identifier, versioned prompt/schema files, strict
+Structured Outputs, and a second local Zod validation pass. Never expose this
+key through `NEXT_PUBLIC_*`.
 
 ## Supabase database setup
 
@@ -233,9 +239,42 @@ npm test
 npm run test:integration
 npm run test:email:live
 npm run test:documents:live
+npm run test:extraction:live
+npm run test:extraction:eval
 npm run build
 npm audit
 ```
+
+## Structured extraction
+
+Phase 4 uses only normalized email and successfully parsed document text.
+Original files, images, OCR_REQUIRED content, and binary data are never sent to
+OpenAI. Deterministic validators find and validate candidates before relevant,
+bounded source fragments are sent to the Responses API.
+
+Run one application:
+
+```bash
+npm run extraction:run -- --application-id=<uuid>
+```
+
+Force a new reviewed run:
+
+```bash
+npm run extraction:run -- --application-id=<uuid> --force
+```
+
+Run the eligible parsed-application batch from a trusted server environment:
+
+```bash
+npm run extraction:pending
+```
+
+Specialists and administrators can run one extraction and correct values on the
+application detail page. Only administrators can start the UI batch. Repeated
+unchanged runs use the persisted fingerprint cache. See
+`docs/AI_EXTRACTION.md`, `docs/AI_EVALUATION.md`, and
+`docs/AI_OPERATIONS.md`.
 
 Hosted integration tests require three dedicated Dashboard users in `.env.local`:
 

@@ -23,6 +23,12 @@ import {
   parsePendingDocumentsAction,
 } from "@/modules/documents/actions";
 import { listApplicationDocuments } from "@/modules/documents/repository";
+import {
+  correctExtractedFieldAction,
+  runExtractionAction,
+  runPendingExtractionsAction,
+} from "@/modules/extraction/actions";
+import { getApplicationExtraction } from "@/modules/extraction/repository";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -43,7 +49,15 @@ export default async function ApplicationDetailPage({
     notFound();
   }
 
-  const [activity, counterparties, profiles, templates, emails, documentData] =
+  const [
+    activity,
+    counterparties,
+    profiles,
+    templates,
+    emails,
+    documentData,
+    extractionData,
+  ] =
     await Promise.all([
       getApplicationActivity(id),
       listCounterpartyOptions(),
@@ -51,6 +65,7 @@ export default async function ApplicationDetailPage({
       listTemplateOptions(),
       listApplicationEmails(id),
       listApplicationDocuments(id),
+      getApplicationExtraction(id),
     ]);
 
   return (
@@ -191,6 +206,219 @@ export default async function ApplicationDetailPage({
       <section className="panel section-gap">
         <div className="page-heading">
           <div>
+            <h3>Extracted data</h3>
+            <p className="muted">
+              Phase 4 structured values. Missing and conflicting values remain
+              review-required until a specialist corrects them.
+            </p>
+          </div>
+          <div className="inline-actions">
+            <form action={runExtractionAction}>
+              <input type="hidden" name="application_id" value={application.id} />
+              <input type="hidden" name="force" value="0" />
+              <button type="submit">Extract data</button>
+            </form>
+            {extractionData.isAdmin && extractionData.runs.length > 0 ? (
+              <form action={runExtractionAction}>
+                <input type="hidden" name="application_id" value={application.id} />
+                <input type="hidden" name="force" value="1" />
+                <button type="submit">Repeat extraction</button>
+              </form>
+            ) : null}
+            {extractionData.isAdmin ? (
+              <form action={runPendingExtractionsAction}>
+                <input type="hidden" name="application_id" value={application.id} />
+                <button type="submit">Extract all pending</button>
+              </form>
+            ) : null}
+          </div>
+        </div>
+
+        {extractionData.fields.length === 0 ? (
+          <p className="muted">No extraction has completed for this application.</p>
+        ) : (
+          <div className="stack">
+            {extractionData.fields.map((field) => {
+              const normalized = field.structured_value?.normalizedValue;
+              const value =
+                normalized === null || normalized === undefined
+                  ? ""
+                  : String(normalized);
+              const sourceAttachment =
+                field.source_type === "parsed_document" && field.source_id
+                  ? extractionData.documentSources[field.source_id]
+                  : null;
+              return (
+                <article className="document-card" key={field.id}>
+                  <div className="page-heading">
+                    <div>
+                      <strong>{field.field_name}</strong>
+                      <div className="muted">
+                        confidence {field.confidence ?? 0} ·{" "}
+                        {field.requires_review ? "review required" : "reviewed"}
+                        {field.conflict_detected ? " · conflict" : ""}
+                        {field.manually_corrected ? " · manually corrected" : ""}
+                      </div>
+                    </div>
+                    {sourceAttachment ? (
+                      <a href={`/api/attachments/${sourceAttachment}`}>
+                        Open source document
+                      </a>
+                    ) : null}
+                  </div>
+                  <p>
+                    <strong>Value:</strong> {value || "(null)"}
+                  </p>
+                  <p className="muted">
+                    Source: {field.source_type ?? "none"} ·{" "}
+                    {field.source_marker ?? "no marker"} · last changed{" "}
+                    {new Date(field.updated_at).toLocaleString()}
+                  </p>
+                  {field.source_excerpt ? (
+                    <blockquote className="source-excerpt">
+                      {field.source_excerpt}
+                    </blockquote>
+                  ) : null}
+                  <div className="two-column">
+                    <form action={correctExtractedFieldAction} className="stack">
+                      <input
+                        type="hidden"
+                        name="application_id"
+                        value={application.id}
+                      />
+                      <input type="hidden" name="field_name" value={field.field_name} />
+                      <input type="hidden" name="action" value="corrected" />
+                      <label className="field">
+                        Corrected value
+                        <input name="value" defaultValue={value} maxLength={10_000} />
+                      </label>
+                      <label className="field">
+                        Correction reason
+                        <input name="reason" required minLength={2} maxLength={1000} />
+                      </label>
+                      <button type="submit">Save correction</button>
+                    </form>
+                    <form action={correctExtractedFieldAction} className="stack">
+                      <input
+                        type="hidden"
+                        name="application_id"
+                        value={application.id}
+                      />
+                      <input type="hidden" name="field_name" value={field.field_name} />
+                      <input type="hidden" name="value" value="" />
+                      <input type="hidden" name="action" value="manual_null_set" />
+                      <label className="field">
+                        Reason for null
+                        <input name="reason" required minLength={2} maxLength={1000} />
+                      </label>
+                      <button type="submit">Set null</button>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {extractionData.conflicts.length > 0 ? (
+          <div className="section-gap">
+            <h4>Conflicts</h4>
+            {extractionData.conflicts.map((conflict) => (
+              <article className="document-card" key={conflict.id}>
+                <strong>{conflict.field_name}</strong>
+                <p className="muted">{conflict.conflict_type}</p>
+                <div className="stack">
+                  {(conflict.candidates as Array<Record<string, unknown>>).map(
+                    (candidate, index) => (
+                      <form action={correctExtractedFieldAction} key={index}>
+                        <input
+                          type="hidden"
+                          name="application_id"
+                          value={application.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="field_name"
+                          value={conflict.field_name}
+                        />
+                        <input
+                          type="hidden"
+                          name="value"
+                          value={String(candidate.normalizedValue ?? "")}
+                        />
+                        <input
+                          type="hidden"
+                          name="source_type"
+                          value={String(candidate.sourceType ?? "")}
+                        />
+                        <input
+                          type="hidden"
+                          name="source_id"
+                          value={String(candidate.sourceId ?? "")}
+                        />
+                        <input
+                          type="hidden"
+                          name="source_marker"
+                          value={String(candidate.sourceMarker ?? "")}
+                        />
+                        <input
+                          type="hidden"
+                          name="source_excerpt"
+                          value={String(candidate.sourceExcerpt ?? "")}
+                        />
+                        <input
+                          type="hidden"
+                          name="action"
+                          value="candidate_selected"
+                        />
+                        <label className="field">
+                          Reason for selecting candidate
+                          <input name="reason" required minLength={2} maxLength={1000} />
+                        </label>
+                        <button type="submit">
+                          Select {String(candidate.normalizedValue ?? "(null)")}
+                        </button>
+                      </form>
+                    ),
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {extractionData.runs.length > 0 ? (
+          <details className="section-gap">
+            <summary>Extraction runs and usage</summary>
+            <ul className="timeline">
+              {extractionData.runs.map((run) => (
+                <li key={run.id}>
+                  <strong>
+                    {run.status} · {run.model}
+                  </strong>
+                  <span>
+                    prompt {run.prompt_version} · schema {run.schema_version}
+                  </span>
+                  <span>
+                    input chars {run.input_character_count} · input tokens{" "}
+                    {run.input_token_count ?? "n/a"} · output tokens{" "}
+                    {run.output_token_count ?? "n/a"} · {run.duration_ms ?? 0} ms
+                  </span>
+                  {run.safe_error_code ? (
+                    <span>
+                      {run.safe_error_code}: {run.safe_error_message}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </section>
+
+      <section className="panel section-gap">
+        <div className="page-heading">
+          <div>
             <h3>Documents</h3>
             <p className="muted">
               Private source files and normalized Phase 3 parsing results.
@@ -217,7 +445,11 @@ export default async function ApplicationDetailPage({
                   ? `${text.slice(0, 20_000)}\n\n[VIEW TRUNCATED]`
                   : text;
               return (
-                <article className="document-card" key={document.id}>
+                <article
+                  className="document-card"
+                  id={`document-${document.id}`}
+                  key={document.id}
+                >
                   <div className="page-heading">
                     <div>
                       <strong>{document.original_filename}</strong>
