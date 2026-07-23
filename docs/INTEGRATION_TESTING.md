@@ -84,3 +84,34 @@ Record the date, environment, migration version, test user role, and results in
 - Persistence: verified with a fresh authenticated client and an application
   server restart
 - Data: integration-only records with generated identifiers; no customer data
+
+## Phase 2 hosted checks
+
+`npm run test:integration` also verifies migration
+`202607230002_phase2_email_ingestion.sql`: mailbox sync state, concurrent
+idempotency, same-subject independence, exact reply matching, unlinked review,
+application linkage, attachment metadata, private Storage, audit, admin-only
+operations, and anonymous/active/inactive user RLS.
+
+The server key is permitted only for worker/setup/cleanup operations. All RLS
+assertions use anonymous or signed-in user sessions. The suite removes only its
+generated rows and objects.
+
+## Phase 2 acceptance result
+
+- Date: 2026-07-22
+- Provider: configured Mail.ru INBOX over IMAP/SMTP
+- Migration: `202607230002_phase2_email_ingestion.sql`
+- Connection verification: real IMAP and SMTP passed
+- Live fixtures: root with text attachment, independent same-subject message,
+  and real reply
+- Live result: two applications, reply linked to the root, one private
+  attachment, no duplicate on repeated processing
+- Operational polling: five messages processed once; next iteration processed
+  zero
+- Hosted suite: 21 tests passed
+- RLS: anonymous denied; active specialist allowed; inactive specialist denied;
+  admin operations allowed
+- Runtime: production login/logout, anonymous redirect, admin UI sync,
+  correspondence rendering, and restart persistence passed
+- Negative auth: safe error confirmed without exposing the real password

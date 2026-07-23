@@ -2,14 +2,14 @@
 
 ## Current phase
 
-Phase 1 — Application registry (complete)
+Phase 2 — Email ingestion (complete)
 
 ## Sprint goal
 
-Create the internal database foundation and a working manual application
-registry before connecting email or AI services.
+Convert Mail.ru INBOX messages into applications without duplicate processing
+or silent loss.
 
-## Completed implementation
+## Phase 1
 
 - [x] Preserve Phase 0 and confirm a clean repository.
 - [x] Define profiles and MVP roles.
@@ -53,18 +53,57 @@ Acceptance completed on 2026-07-22 against the linked hosted test project using
 migration `202607230001_phase1_application_registry.sql`. No credentials,
 project keys, or customer data are recorded in the repository.
 
+## Phase 2 implementation
+
+- [x] Select Mail.ru through standard IMAP/SMTP.
+- [x] Add provider-neutral email interface and typed configuration loader.
+- [x] Verify real IMAP TLS/auth and SMTP TLS/auth.
+- [x] Add one-iteration polling CLI and admin-only UI action.
+- [x] Add mailbox state with UIDVALIDITY handling.
+- [x] Add atomic application/email ingestion and mailbox-scoped idempotency.
+- [x] Add exact In-Reply-To/References linkage and unlinked review queue.
+- [x] Add private attachment storage, validation, checksums, and signed access.
+- [x] Add manual linkage, reprocessing, error visibility, and email audit.
+- [x] Show plain-text correspondence and attachments on application detail.
+- [x] Pass 21 hosted integration tests across Phase 1 and Phase 2.
+- [x] Complete live email/application/reply/attachment acceptance.
+- [x] Confirm persistence through an application restart after live ingestion.
+
+## Phase 2 acceptance
+
+Acceptance completed on 2026-07-22 against the configured Mail.ru INBOX and
+linked hosted Supabase project:
+
+- real IMAP TLS/auth and SMTP TLS/auth passed;
+- three prefixed acceptance messages were found;
+- two independent same-subject messages created two applications;
+- the real reply linked to the first application through reply headers;
+- one safe text attachment was stored in the private bucket;
+- active authenticated signed access passed and anonymous access was denied;
+- repeated live ingestion and a second operational polling iteration created no
+  duplicates;
+- operational polling persisted five mailbox messages, four applications, one
+  reply link, one attachment, and a completed UID cursor without errors;
+- production login/logout, anonymous redirect, admin-only UI sync, persisted
+  correspondence, plain-text rendering, and error/success state were checked
+  after rebuilding and restarting the application;
+- an invalid derived password produced only a safe error and did not expose the
+  real credential.
+
+The hosted suite passed 21 tests and the local suite passed 59 tests. No
+credentials, real message bodies, mailbox addresses, or attachments are stored
+in Git.
+
 ## Explicitly excluded
 
-- Email provider integration
 - AI extraction
 - File parsing or OCR
 - Clarification email
 - DOCX generation
 - Contract delivery
 - Reporting and XLSX export
-- Phase 2 or later implementation
+- Phase 3 or later implementation
 
 ## Next phase rule
 
-Phase 2 must not begin without a separate direct user instruction and a selected
-mailbox provider.
+Phase 3 must not begin without a separate direct user instruction.

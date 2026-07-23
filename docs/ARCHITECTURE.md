@@ -131,3 +131,30 @@ Keep deployment simple:
 - one AI provider.
 
 Record the actual choices in `docs/DECISIONS.md`.
+
+## Phase 2 email ingestion
+
+The email module depends on the `EmailProvider` interface rather than directly
+on ImapFlow. The Mail.ru adapter opens the configured INBOX read-only, supplies
+UID/UIDVALIDITY and raw MIME to the parser, and always closes the connection.
+SMTP is limited to TLS/auth verification in this phase.
+
+One polling iteration is:
+
+```text
+Mail.ru INBOX
+  -> provider fetch
+  -> MIME parsing and safe metadata normalization
+  -> mailbox-scoped idempotency lock
+  -> atomic application/email RPC
+  -> private attachment upload and metadata
+  -> completed/failed state and append-only audit
+  -> mailbox cursor update
+```
+
+The `mailbox_sync_state` cursor is reset to UID 0 when UIDVALIDITY changes.
+Messages with reply headers are linked only through exact normalized
+In-Reply-To/References matches. Unmatched replies remain visible for manual
+admin linkage. Received HTML is stored for future sanitized use but never
+rendered raw. Attachment downloads use authenticated RLS and 60-second signed
+URLs.

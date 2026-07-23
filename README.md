@@ -30,8 +30,9 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 repository foundation and Phase 1 application registry acceptance are
-complete. Phase 2 has not started.
+Phase 0, Phase 1, and Phase 2 are complete. Mail.ru ingestion passed hosted
+database, real mailbox, private Storage, idempotency, and production UI
+acceptance.
 
 ## Start here
 
@@ -95,8 +96,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 Legacy projects may use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the
 publishable key.
 
-Do not expose or commit `SUPABASE_SERVICE_ROLE_KEY`. It is reserved for future
-server-only administrative operations.
+Set `SUPABASE_SECRET_KEY` only for server-side email ingestion. The legacy
+`SUPABASE_SERVICE_ROLE_KEY` name is temporarily accepted. Never expose either
+through a `NEXT_PUBLIC_*` variable or commit `.env.local`.
 
 ## Supabase database setup
 
@@ -172,6 +174,29 @@ After signing in, the internal routes are:
 
 The public health endpoint is `GET /api/health`.
 
+## Mail.ru ingestion
+
+Copy the canonical Mail.ru variables from `.env.example` and use an
+external-application password. `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USERNAME`, and
+`EMAIL_PASSWORD` remain compatibility aliases, but new setup should use the
+`EMAIL_IMAP_*` and `EMAIL_SMTP_*` names.
+
+Verify both connections without sending mail:
+
+```bash
+npm run email:check
+```
+
+Run one polling iteration:
+
+```bash
+npm run email:sync
+```
+
+Administrators can also run a real iteration and review failures/unlinked
+messages at `/email`. See `docs/EMAIL_INTEGRATION.md` and
+`docs/EMAIL_OPERATIONS.md`.
+
 ## Validation
 
 Run the same checks used by CI:
@@ -181,6 +206,7 @@ npm run lint
 npm run typecheck
 npm test
 npm run test:integration
+npm run test:email:live
 npm run build
 npm audit
 ```

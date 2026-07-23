@@ -17,6 +17,7 @@ import {
 } from "@/modules/applications/repository";
 import { listCounterpartyOptions } from "@/modules/counterparties/repository";
 import { listTemplateOptions } from "@/modules/templates/repository";
+import { listApplicationEmails } from "@/modules/email/repository";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -37,11 +38,12 @@ export default async function ApplicationDetailPage({
     notFound();
   }
 
-  const [activity, counterparties, profiles, templates] = await Promise.all([
+  const [activity, counterparties, profiles, templates, emails] = await Promise.all([
     getApplicationActivity(id),
     listCounterpartyOptions(),
     listAssignableProfiles(),
     listTemplateOptions(),
+    listApplicationEmails(id),
   ]);
 
   return (
@@ -134,7 +136,49 @@ export default async function ApplicationDetailPage({
             <dd>{activity.counts.contracts}</dd>
           </div>
         </dl>
-        <p className="muted">Будет доступно на следующем этапе</p>
+      </section>
+
+      <section className="panel section-gap">
+        <h3>Correspondence</h3>
+        {emails.length === 0 ? (
+          <p className="muted">No email messages are linked to this application.</p>
+        ) : (
+          <ul className="timeline">
+            {emails.map((message) => (
+              <li key={message.id}>
+                <strong>{message.subject ?? "(no subject)"}</strong>
+                <span>
+                  {message.sender} · {new Date(message.occurred_at).toLocaleString()}
+                </span>
+                <span>
+                  To:{" "}
+                  {message.recipients.map((recipient) => recipient.address).join(", ") ||
+                    "not recorded"}
+                </span>
+                <div className="email-body">
+                  {message.plain_body ?? "No plain-text body was supplied."}
+                </div>
+                <span>
+                  Processing: {message.processing_status}
+                  {message.processing_error ? ` — ${message.processing_error}` : ""}
+                </span>
+                {message.attachments.length > 0 ? (
+                  <ul>
+                    {message.attachments.map((attachment) => (
+                      <li key={attachment.id}>
+                        <a href={`/api/attachments/${attachment.id}`}>
+                          {attachment.original_filename}
+                        </a>{" "}
+                        ({attachment.mime_type}, {attachment.size_bytes} bytes,{" "}
+                        {attachment.parse_status})
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <div className="two-column section-gap">

@@ -278,6 +278,29 @@ th {
   margin: 0.25rem 0 0;
 }
 
+.summary-grid .summary-text {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.compact-form {
+  min-width: 230px;
+}
+
+.compact-form input {
+  border: 1px solid #9da7b2;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.email-body {
+  background: #f8f9fa;
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+}
+
 .timeline {
   display: grid;
   gap: 0.8rem;

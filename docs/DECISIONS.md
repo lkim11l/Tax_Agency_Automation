@@ -129,11 +129,33 @@ Reason:
 This keeps UI components free of query and business logic while avoiding a
 premature universal repository framework.
 
+## ADR-011 — Mail.ru through standard IMAP/SMTP polling
+
+Status: Accepted
+
+Decision:
+Use a provider-neutral `EmailProvider` boundary with Mail.ru as the first
+implementation. Use ImapFlow 1.4.9 for read-only IMAP access, MailParser 3.9.14
+for MIME parsing, and Nodemailer 9.0.3 for SMTP connection verification. Run
+explicit polling iterations through CLI or an admin-only Server Action; do not
+depend on a permanent IMAP IDLE connection.
+
+Email identity is mailbox-scoped using provider, mailbox identifier,
+UIDVALIDITY, and UID. RFC Message-ID is an additional idempotency key when
+present. A server-only Supabase client performs atomic application/email
+ingestion through a restricted PostgreSQL function. Ordinary UI access
+continues to use authenticated sessions and RLS.
+
+Reason:
+Polling works locally and can later be scheduled by the selected deployment
+platform without committing to premature background-job infrastructure.
+Mailbox-scoped identity survives missing Message-ID values and UIDVALIDITY
+changes. The provider boundary keeps business logic independent from ImapFlow.
+
 ## Pending decisions
 
 Do not resolve without evidence or user input:
 
-- selected mailbox provider;
 - DOCX generation library;
 - PDF conversion strategy;
 - deployment target;

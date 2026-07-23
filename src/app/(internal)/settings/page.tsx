@@ -11,8 +11,14 @@ export default function SettingsPage() {
       <section className="panel">
         <p>
           Supabase connection values are configured through environment variables.
-          Database migrations, profiles, RLS, and application registry storage are
-          available in Phase 1. Provider settings will be added in later phases.
+          Mail.ru IMAP/SMTP credentials are server-only and are never displayed in
+          this interface. Use Email operations to verify synchronization state and
+          run an administrator-controlled polling iteration.
+        </p>
+        <p>
+          Public registration remains disabled. Specialists can read linked
+          correspondence and private attachments through their authenticated
+          session; only administrators can synchronize or reprocess mail.
         </p>
       </section>
     </>

@@ -8,6 +8,7 @@ const navigation = [
   { href: "/applications", label: "Applications" },
   { href: "/counterparties", label: "Counterparties" },
   { href: "/templates", label: "Templates" },
+  { href: "/email", label: "Email" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
 ];

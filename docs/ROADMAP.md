@@ -85,22 +85,28 @@ Convert incoming mailbox messages into applications without duplication or data 
 
 ## Tasks
 
-- [ ] Confirm one customer email provider.
-- [ ] Define an email provider interface.
-- [ ] Implement the selected provider.
-- [ ] Store provider message and thread IDs.
-- [ ] Save sender, recipients, subject, body, and timestamps.
-- [ ] Download supported attachments.
-- [ ] Store attachments securely.
-- [ ] Add idempotency protection.
-- [ ] Link replies to an existing application.
-- [ ] Add manual reprocessing.
-- [ ] Add ingestion error visibility.
-- [ ] Add tests with provider fixtures.
+- [x] Confirm one customer email provider.
+- [x] Define an email provider interface.
+- [x] Implement the selected provider.
+- [x] Store provider message and thread IDs.
+- [x] Save sender, recipients, subject, body, and timestamps.
+- [x] Download supported attachments.
+- [x] Store attachments securely.
+- [x] Add idempotency protection.
+- [x] Link replies to an existing application.
+- [x] Add manual reprocessing.
+- [x] Add ingestion error visibility.
+- [x] Add tests with provider fixtures.
 
 ## Acceptance gate
 
 A real test email creates exactly one application, attachments are available, and a reply is linked to the same application.
+
+Acceptance status: passed on 2026-07-22 against the configured Mail.ru mailbox
+and linked hosted Supabase project. Root/same-subject/reply behavior,
+application linkage, private attachment access, operational polling,
+idempotency, restart persistence, UI sync, and safe invalid-credential handling
+were verified.
 
 ---
 
