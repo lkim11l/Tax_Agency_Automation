@@ -1,0 +1,166 @@
+:root {
+  color-scheme: light;
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --border: #d7dce2;
+  --text: #17202a;
+  --muted: #5e6a75;
+  --accent: #1957a6;
+  --danger: #a52222;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  padding: 0.65rem 1rem;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #16263a;
+  color: white;
+  padding: 1.5rem 1rem;
+}
+
+.sidebar h1 {
+  font-size: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sidebar a {
+  border-radius: 4px;
+  color: white;
+  padding: 0.6rem;
+  text-decoration: none;
+}
+
+.sidebar a:hover {
+  background: #243a55;
+}
+
+.sidebar form {
+  margin-top: 2rem;
+}
+
+.sidebar button {
+  background: transparent;
+  border: 1px solid #8190a1;
+  width: 100%;
+}
+
+.content {
+  padding: 2rem;
+}
+
+.content h2 {
+  margin-top: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 850px;
+  padding: 1.5rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.auth-page,
+.status-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 1rem;
+  place-items: center;
+}
+
+.auth-card,
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 460px;
+  padding: 2rem;
+  width: 100%;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-form label {
+  display: grid;
+  font-weight: 600;
+  gap: 0.3rem;
+}
+
+.auth-form input {
+  border: 1px solid #9da7b2;
+  border-radius: 4px;
+  padding: 0.65rem;
+}
+
+.error-message {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .shell {
+    display: block;
+  }
+
+  .sidebar nav {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .content {
+    padding: 1rem;
+  }
+}

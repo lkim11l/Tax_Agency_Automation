@@ -16,18 +16,18 @@ Create a reproducible project with clear instructions, validation commands, envi
 
 ## Tasks
 
-- [ ] Initialize Next.js TypeScript application.
-- [ ] Add strict TypeScript configuration.
-- [ ] Add linting and formatting.
-- [ ] Add test runner.
-- [ ] Add `typecheck`, `test`, and `build` scripts.
-- [ ] Add `.env.example`.
-- [ ] Add `.gitignore` rules for secrets and customer files.
-- [ ] Create database project/configuration.
-- [ ] Create basic authenticated application shell.
-- [ ] Create health endpoint.
-- [ ] Add CI for lint, typecheck, tests, and build.
-- [ ] Confirm clean local setup from README.
+- [x] Initialize Next.js TypeScript application.
+- [x] Add strict TypeScript configuration.
+- [x] Add linting and formatting.
+- [x] Add test runner.
+- [x] Add `typecheck`, `test`, and `build` scripts.
+- [x] Add `.env.example`.
+- [x] Add `.gitignore` rules for secrets and customer files.
+- [x] Create database project/configuration.
+- [x] Create basic authenticated application shell.
+- [x] Create health endpoint.
+- [x] Add CI for lint, typecheck, tests, and build.
+- [x] Confirm clean local setup from README.
 
 ## Acceptance gate
 

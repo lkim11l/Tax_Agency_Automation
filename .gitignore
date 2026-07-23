@@ -6,11 +6,14 @@ node_modules/
 out/
 dist/
 coverage/
+*.tsbuildinfo
+next-env.d.ts
 
 # environment and secrets
 .env
 .env.*
 !.env.example
+.env.local
 
 # logs
 *.log
@@ -29,6 +32,9 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Supabase local development
+.supabase/
 
 # customer and legal documents
 customer-data/
