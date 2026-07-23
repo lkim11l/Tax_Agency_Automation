@@ -35,6 +35,7 @@ Thumbs.db
 
 # Supabase local development
 .supabase/
+supabase/.temp/
 
 # customer and legal documents
 customer-data/

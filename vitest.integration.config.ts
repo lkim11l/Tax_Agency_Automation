@@ -9,15 +9,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    exclude: [
-      "**/node_modules/**",
-      "**/.git/**",
-      "tests/integration/**",
-      "**/*.integration.test.ts",
-    ],
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "json", "html"],
-    },
+    include: ["tests/integration/**/*.test.ts"],
+    fileParallelism: false,
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

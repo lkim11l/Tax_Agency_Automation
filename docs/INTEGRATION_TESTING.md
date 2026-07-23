@@ -19,6 +19,22 @@ and mocks do not satisfy this checklist.
 4. Copy only the project URL and anon key to `.env.local`.
 5. Never copy the service-role key into a `NEXT_PUBLIC_*` variable.
 
+Create three dedicated users and configure their `profiles`:
+
+- admin, active;
+- specialist, active;
+- specialist, inactive.
+
+Store their test credentials only in ignored `.env.local`. Run:
+
+```bash
+npm run test:integration
+```
+
+The suite intentionally fails when required credentials are missing or invalid.
+RLS assertions use only the publishable/legacy anon key and signed-in user
+sessions.
+
 ## Application acceptance
 
 1. Run `npm run dev`.
@@ -49,3 +65,22 @@ and mocks do not satisfy this checklist.
 
 Record the date, environment, migration version, test user role, and results in
 `docs/CURRENT_SPRINT.md`. Do not include keys, tokens, or customer data.
+
+## Hosted acceptance result
+
+- Date: 2026-07-22
+- Environment: linked hosted Supabase test project
+- Migration: `202607230001_phase1_application_registry.sql`
+- Tables: all 11 Phase 1 tables verified
+- Public registration: disabled
+- Test roles: admin/active, specialist/active, specialist/inactive
+- Integration suite: 13 tests passed
+- Auth runtime: SSR login/logout passed
+- Application runtime: list, create page, detail, counterparties, and templates
+  returned HTTP 200 with a real authenticated session
+- Missing application: authenticated random UUID returned HTTP 404 before
+  streaming
+- Anonymous and post-logout access: redirected to `/login`
+- Persistence: verified with a fresh authenticated client and an application
+  server restart
+- Data: integration-only records with generated identifiers; no customer data

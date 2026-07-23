@@ -8,7 +8,7 @@ export async function updateSession(request: NextRequest) {
   const config = getSupabasePublicConfig();
 
   if (!config) {
-    return { response, user: null };
+    return { response, user: null, supabase: null };
   }
 
   const supabase = createServerClient(config.url, config.anonKey, {
@@ -32,5 +32,5 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user };
+  return { response, user, supabase };
 }

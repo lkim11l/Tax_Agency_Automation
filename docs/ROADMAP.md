@@ -71,9 +71,9 @@ Create the internal data foundation before connecting real email.
 
 A signed-in specialist can create, view, edit, and track an application, and every important change is persisted and audited.
 
-Implementation status: code-complete. This acceptance gate remains pending until
-the migration and authenticated workflows are verified against a real local or
-hosted Supabase database.
+Acceptance status: passed against the linked hosted Supabase test project on
+2026-07-22. Authenticated CRUD, persistence, status history, audit, constraints,
+and anonymous/admin/active-specialist/inactive-specialist RLS were verified.
 
 ---
 

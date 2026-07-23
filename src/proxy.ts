@@ -5,7 +5,7 @@ import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { updateSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
-  const { response, user } = await updateSession(request);
+  const { response, user, supabase } = await updateSession(request);
 
   if (!isProtectedPath(request.nextUrl.pathname)) {
     return response;
@@ -24,6 +24,25 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const applicationDetailMatch = request.nextUrl.pathname.match(
+    /^\/applications\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i,
+  );
+
+  if (applicationDetailMatch && supabase) {
+    const { data, error } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("id", applicationDetailMatch[1])
+      .maybeSingle();
+
+    if (!error && !data) {
+      return new NextResponse("Application not found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
   }
 
   return response;

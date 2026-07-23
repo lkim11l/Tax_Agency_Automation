@@ -30,9 +30,8 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 repository foundation is complete. Phase 1 application registry code,
-migrations, RLS policies, and safe seed data are implemented. Real Supabase
-acceptance verification remains required before Phase 2.
+Phase 0 repository foundation and Phase 1 application registry acceptance are
+complete. Phase 2 has not started.
 
 ## Start here
 
@@ -90,8 +89,11 @@ Set these values in `.env.local` from the Supabase project settings:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ```
+
+Legacy projects may use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the
+publishable key.
 
 Do not expose or commit `SUPABASE_SERVICE_ROLE_KEY`. It is reserved for future
 server-only administrative operations.
@@ -178,8 +180,25 @@ Run the same checks used by CI:
 npm run lint
 npm run typecheck
 npm test
+npm run test:integration
 npm run build
+npm audit
 ```
+
+Hosted integration tests require three dedicated Dashboard users in `.env.local`:
+
+```text
+SUPABASE_TEST_ADMIN_EMAIL
+SUPABASE_TEST_ADMIN_PASSWORD
+SUPABASE_TEST_SPECIALIST_EMAIL
+SUPABASE_TEST_SPECIALIST_PASSWORD
+SUPABASE_TEST_INACTIVE_EMAIL
+SUPABASE_TEST_INACTIVE_PASSWORD
+```
+
+Their `profiles` roles/states must be admin/active, specialist/active, and
+specialist/inactive. The integration suite uses only user sessions and the
+publishable/legacy anon key for RLS assertions. It does not use service-role.
 
 The local Supabase CLI configuration is in `supabase/config.toml`. It disables
 public sign-up and anonymous sign-in. Phase 1 migration and seed instructions are

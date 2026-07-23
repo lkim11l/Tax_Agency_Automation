@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 1 — Application registry (implementation complete; real Supabase acceptance pending)
+Phase 1 — Application registry (complete)
 
 ## Sprint goal
 
@@ -31,18 +31,27 @@ registry before connecting email or AI services.
 - [x] Add unit and migration-contract tests.
 - [x] Pass lint, strict typecheck, unit tests, and production build.
 
-## Acceptance verification
+## Hosted Supabase acceptance
 
-- [ ] Apply migrations to a clean local Supabase database.
-- [ ] Create a real Dashboard user and verify active-profile access.
-- [ ] Verify inactive-profile denial against RLS.
-- [ ] Exercise create/edit/status/comment/search/filter flows against PostgreSQL.
-- [ ] Verify persisted status history and audit records.
-- [ ] Verify missing application returns 404 with a configured database.
+- [x] Link the intended hosted project and verify project-ref consistency.
+- [x] Review and dry-run the Phase 1 migration.
+- [x] Apply the migration without remote reset or remote seed.
+- [x] Verify all 11 Phase 1 tables.
+- [x] Disable public and anonymous registration.
+- [x] Configure admin, active specialist, and inactive specialist users.
+- [x] Verify real login/logout and SSR authenticated routes.
+- [x] Verify persisted application HTTP 200 and missing application HTTP 404.
+- [x] Create two applications with unique sequence-based numbers.
+- [x] Verify application edits persist across a new session and server restart.
+- [x] Verify counterparty and template metadata create/update.
+- [x] Verify atomic status history and audit events.
+- [x] Verify database constraints.
+- [x] Verify anonymous, admin, active specialist, and inactive specialist RLS.
+- [x] Pass 13 hosted integration tests without service-role RLS assertions.
 
-Blocked locally on 2026-07-22: Docker Desktop is installed but its Linux daemon
-is not running, `.env.local` is absent, and no hosted Supabase credentials were
-provided. Unit tests and production build do not substitute for these checks.
+Acceptance completed on 2026-07-22 against the linked hosted test project using
+migration `202607230001_phase1_application_registry.sql`. No credentials,
+project keys, or customer data are recorded in the repository.
 
 ## Explicitly excluded
 
@@ -55,10 +64,7 @@ provided. Unit tests and production build do not substitute for these checks.
 - Reporting and XLSX export
 - Phase 2 or later implementation
 
-## Remaining setup
+## Next phase rule
 
-1. Start Docker Desktop or link a dedicated hosted Supabase project.
-2. Run `npm run db:reset` locally, or review and run `npx supabase db push`.
-3. Create the first user in Supabase Dashboard and configure `.env.local`.
-4. Complete `docs/INTEGRATION_TESTING.md`.
-5. Mark Phase 1 acceptance complete only after real persistence is verified.
+Phase 2 must not begin without a separate direct user instruction and a selected
+mailbox provider.
