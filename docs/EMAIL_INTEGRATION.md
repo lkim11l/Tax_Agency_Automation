@@ -50,8 +50,10 @@ An unmatched reply remains unlinked for operator review.
 
 ## Attachments
 
-Allowed attachments are limited to 10 MiB and safe document/text/image MIME
-types. Executable extensions are blocked. Filenames are sanitized, SHA-256 is
+Attachments are limited to 10 MiB. Executable extensions and active-content
+media types are blocked during ingestion. Other files are retained privately so
+Phase 3 can validate content signatures and keep safe unsupported formats
+visible instead of silently losing them. Filenames are sanitized, SHA-256 is
 stored, and checksum-prefixed object paths prevent filename collisions. Objects
 live in the private `email-attachments` bucket. Active authenticated users
 receive 60-second signed download URLs; anonymous access is denied.

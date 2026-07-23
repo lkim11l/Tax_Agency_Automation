@@ -4,15 +4,11 @@ import path from "node:path";
 export const EMAIL_ATTACHMENT_BUCKET = "email-attachments";
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-const allowedMimeTypes = new Set([
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/tiff",
+const blockedMimeTypes = new Set([
+  "application/javascript",
+  "application/x-dosexec",
+  "application/x-msdownload",
+  "text/javascript",
 ]);
 
 const blockedExtensions = new Set([
@@ -62,8 +58,8 @@ export function validateAttachment(input: {
   if (blockedExtensions.has(path.extname(sanitizedFilename).toLowerCase())) {
     return { allowed: false as const, reason: "Executable attachments are blocked." };
   }
-  if (!allowedMimeTypes.has(input.mimeType.toLowerCase())) {
-    return { allowed: false as const, reason: "Attachment type is not allowed." };
+  if (blockedMimeTypes.has(input.mimeType.toLowerCase())) {
+    return { allowed: false as const, reason: "Active-content attachments are blocked." };
   }
   return { allowed: true as const, sanitizedFilename };
 }

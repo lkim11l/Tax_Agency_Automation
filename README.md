@@ -30,8 +30,8 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0, Phase 1, and Phase 2 are complete. Mail.ru ingestion passed hosted
-database, real mailbox, private Storage, idempotency, and production UI
+Phase 0 through Phase 3 are complete. Secure document parsing passed hosted
+database/RLS, private Storage, real Mail.ru, idempotency, and persistence
 acceptance.
 
 ## Start here
@@ -197,6 +197,31 @@ Administrators can also run a real iteration and review failures/unlinked
 messages at `/email`. See `docs/EMAIL_INTEGRATION.md` and
 `docs/EMAIL_OPERATIONS.md`.
 
+## Document parsing
+
+Phase 3 supports DOCX, text PDFs, XLSX, TXT, and CSV. Validated JPEG, PNG, WebP,
+TIFF, and scanned PDFs are routed to `review_required / OCR_REQUIRED`; OCR is
+not enabled. Safe unknown formats remain visible as `unsupported`. Macro-enabled
+Office files, executable/active content, standalone archives, spoofed files,
+unsafe Office archives, and configured limit violations are blocked.
+
+Run the pending queue:
+
+```bash
+npm run documents:parse-pending
+```
+
+Run one pending attachment:
+
+```bash
+npm run documents:parse -- --attachment-id=<uuid>
+```
+
+Administrators have equivalent real actions on the application detail page.
+Active specialists can inspect status, parser/version, source metadata,
+warnings, safe errors, text length, normalized text, and the private original.
+See `docs/DOCUMENT_PARSING.md` and `docs/DOCUMENT_OPERATIONS.md`.
+
 ## Validation
 
 Run the same checks used by CI:
@@ -207,6 +232,7 @@ npm run typecheck
 npm test
 npm run test:integration
 npm run test:email:live
+npm run test:documents:live
 npm run build
 npm audit
 ```

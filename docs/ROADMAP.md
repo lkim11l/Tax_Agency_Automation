@@ -118,21 +118,27 @@ Produce normalized text from supported attachments while preserving source refer
 
 ## Tasks
 
-- [ ] Parse DOCX.
-- [ ] Parse text-based PDF.
-- [ ] Parse XLSX key-value content.
-- [ ] Add image OCR as a review-required path.
-- [ ] Validate file type and size.
-- [ ] Sanitize filenames.
-- [ ] Store parse status and errors.
-- [ ] Store normalized extracted text.
-- [ ] Preserve page, sheet, or document source metadata where possible.
-- [ ] Add unsupported-file fallback.
-- [ ] Add parser tests.
+- [x] Parse DOCX.
+- [x] Parse text-based PDF.
+- [x] Parse XLSX key-value content.
+- [x] Add image OCR as a review-required path.
+- [x] Validate file type and size.
+- [x] Sanitize filenames.
+- [x] Store parse status and errors.
+- [x] Store normalized extracted text.
+- [x] Preserve page, sheet, or document source metadata where possible.
+- [x] Add unsupported-file fallback.
+- [x] Add parser tests.
 
 ## Acceptance gate
 
 Supported files produce readable normalized text, and unsupported or failed files remain visible for manual handling.
+
+Acceptance status: passed on 2026-07-23 against the configured Mail.ru mailbox
+and linked hosted Supabase project. DOCX/PDF/XLSX normalized text, page/sheet
+markers, PNG OCR review, safe unsupported fallback, private access, anonymous
+denial, retries, idempotency, persistence, immutable attempts, and audit were
+verified.
 
 ---
 

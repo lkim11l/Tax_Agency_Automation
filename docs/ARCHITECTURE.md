@@ -158,3 +158,32 @@ In-Reply-To/References matches. Unmatched replies remain visible for manual
 admin linkage. Received HTML is stored for future sanitized use but never
 rendered raw. Attachment downloads use authenticated RLS and 60-second signed
 URLs.
+
+## Phase 3 document parsing
+
+The `documents` module owns validation, parser selection, normalization,
+orchestration, and result access. Third-party libraries are isolated behind the
+`DocumentParser` interface.
+
+```text
+private attachment
+  -> service-role atomic claim (FOR UPDATE SKIP LOCKED)
+  -> signature/archive validation
+  -> DocumentParser registry
+  -> deterministic normalization
+  -> service-role atomic finalize
+  -> current result + immutable attempt + audit
+```
+
+`attachments` is the queue and stores the operator-facing status. One
+`parsed_documents` row is the current result. `document_parse_attempts` retains
+each completed attempt. Active users have read-only RLS; administrators request
+work through a restricted RPC; browser code never receives the server secret.
+Page and sheet markers preserve traceability for future Phase 4 extraction.
+
+OCR is an optional stage after a parser returns `review_required /
+OCR_REQUIRED`, not a document parser implementation. `OcrProvider` receives
+already validated image/PDF bytes and returns `OcrResult` with page data and
+quality metrics. No provider is configured in Phase 3. This seam supports a
+future isolated local process or private Linux worker without changing
+`DocumentParser`, parser registry, or persisted workflow states.

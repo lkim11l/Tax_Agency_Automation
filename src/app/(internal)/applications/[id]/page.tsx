@@ -18,6 +18,11 @@ import {
 import { listCounterpartyOptions } from "@/modules/counterparties/repository";
 import { listTemplateOptions } from "@/modules/templates/repository";
 import { listApplicationEmails } from "@/modules/email/repository";
+import {
+  parseDocumentAction,
+  parsePendingDocumentsAction,
+} from "@/modules/documents/actions";
+import { listApplicationDocuments } from "@/modules/documents/repository";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -38,13 +43,15 @@ export default async function ApplicationDetailPage({
     notFound();
   }
 
-  const [activity, counterparties, profiles, templates, emails] = await Promise.all([
-    getApplicationActivity(id),
-    listCounterpartyOptions(),
-    listAssignableProfiles(),
-    listTemplateOptions(),
-    listApplicationEmails(id),
-  ]);
+  const [activity, counterparties, profiles, templates, emails, documentData] =
+    await Promise.all([
+      getApplicationActivity(id),
+      listCounterpartyOptions(),
+      listAssignableProfiles(),
+      listTemplateOptions(),
+      listApplicationEmails(id),
+      listApplicationDocuments(id),
+    ]);
 
   return (
     <>
@@ -178,6 +185,126 @@ export default async function ApplicationDetailPage({
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="panel section-gap">
+        <div className="page-heading">
+          <div>
+            <h3>Documents</h3>
+            <p className="muted">
+              Private source files and normalized Phase 3 parsing results.
+            </p>
+          </div>
+          {documentData.isAdmin && documentData.documents.length > 0 ? (
+            <form action={parsePendingDocumentsAction}>
+              <input type="hidden" name="application_id" value={application.id} />
+              <button type="submit">Parse all pending</button>
+            </form>
+          ) : null}
+        </div>
+        {documentData.documents.length === 0 ? (
+          <p className="muted">No attachments are linked to this application.</p>
+        ) : (
+          <div className="stack">
+            {documentData.documents.map((document) => {
+              const parsed = Array.isArray(document.parsed_documents)
+                ? document.parsed_documents[0]
+                : document.parsed_documents;
+              const text = parsed?.normalized_text ?? null;
+              const visibleText =
+                text && text.length > 20_000
+                  ? `${text.slice(0, 20_000)}\n\n[VIEW TRUNCATED]`
+                  : text;
+              return (
+                <article className="document-card" key={document.id}>
+                  <div className="page-heading">
+                    <div>
+                      <strong>{document.original_filename}</strong>
+                      <div className="muted">
+                        {document.mime_type} · {document.size_bytes} bytes · checksum{" "}
+                        {document.checksum.slice(0, 12)}
+                      </div>
+                    </div>
+                    <a href={`/api/attachments/${document.id}`}>Download original</a>
+                  </div>
+                  <dl className="summary-grid">
+                    <div>
+                      <dt>Status</dt>
+                      <dd>{document.parse_status}</dd>
+                    </div>
+                    <div>
+                      <dt>Parser</dt>
+                      <dd>
+                        {parsed
+                          ? `${parsed.parser_type} (${parsed.parser_version})`
+                          : "not run"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Text length</dt>
+                      <dd>{parsed?.text_length ?? 0}</dd>
+                    </div>
+                    <div>
+                      <dt>Completed</dt>
+                      <dd>
+                        {document.parse_completed_at
+                          ? new Date(document.parse_completed_at).toLocaleString()
+                          : "not completed"}
+                      </dd>
+                    </div>
+                  </dl>
+                  {parsed && Object.keys(parsed.source_metadata).length > 0 ? (
+                    <details>
+                      <summary>Source metadata</summary>
+                      <pre className="email-body">
+                        {JSON.stringify(parsed.source_metadata, null, 2)}
+                      </pre>
+                    </details>
+                  ) : null}
+                  {parsed?.warnings.length ? (
+                    <div className="alert">
+                      <strong>Warnings</strong>
+                      <ul>
+                        {parsed.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {document.parse_error_code || document.parse_error ? (
+                    <p className="alert alert-error">
+                      {document.parse_error_code ?? "PARSE_ERROR"}:{" "}
+                      {document.parse_error ?? "Document parsing needs attention."}
+                    </p>
+                  ) : null}
+                  {visibleText ? (
+                    <details>
+                      <summary>View normalized text</summary>
+                      <pre className="document-text">{visibleText}</pre>
+                    </details>
+                  ) : null}
+                  {documentData.isAdmin && document.parse_status !== "processing" ? (
+                    <form action={parseDocumentAction}>
+                      <input
+                        type="hidden"
+                        name="application_id"
+                        value={application.id}
+                      />
+                      <input
+                        type="hidden"
+                        name="attachment_id"
+                        value={document.id}
+                      />
+                      <button type="submit">
+                        {document.parse_status === "pending" ? "Parse" : "Retry parse"}
+                      </button>
+                    </form>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
         )}
       </section>
 

@@ -14,22 +14,32 @@
     "db:lint": "supabase db lint",
     "email:check": "node --env-file=.env.local --import tsx scripts/email-check.ts",
     "email:sync": "node --env-file=.env.local --import tsx scripts/email-sync.ts",
+    "documents:parse": "node --env-file=.env.local --import tsx scripts/documents-parse.ts",
+    "documents:parse-pending": "node --env-file=.env.local --import tsx scripts/documents-parse-pending.ts",
+    "documents:fixtures": "node --import tsx scripts/documents-generate-fixtures.ts",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
-    "test:email:live": "node --env-file=.env.local --import tsx scripts/email-live.ts"
+    "test:email:live": "node --env-file=.env.local --import tsx scripts/email-live.ts",
+    "test:documents:live": "node --env-file=.env.local --import tsx scripts/documents-live.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",
     "@supabase/supabase-js": "2.110.8",
+    "cheerio": "1.0.0",
+    "csv-parse": "7.0.1",
+    "exceljs": "4.4.0",
     "imapflow": "1.4.9",
     "mailparser": "3.9.14",
+    "mammoth": "1.12.0",
     "next": "16.2.11",
     "nodemailer": "9.0.3",
+    "pdfjs-dist": "4.10.38",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "yauzl": "3.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -39,16 +49,19 @@
     "@types/nodemailer": "8.0.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/yauzl": "3.4.0",
     "@vitest/coverage-v8": "4.1.10",
     "eslint": "latest",
     "eslint-config-next": "16.2.11",
+    "fflate": "0.8.3",
     "supabase": "^2.109.1",
     "tsx": "4.20.6",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
   "overrides": {
-    "postcss": "8.5.10",
-    "sharp": "0.35.0"
+    "postcss": "8.5.22",
+    "sharp": "0.35.0",
+    "uuid": "11.1.1"
   }
 }

@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 2 — Email ingestion (complete)
+Phase 3 — Document parsing (complete)
 
 ## Sprint goal
 
-Convert Mail.ru INBOX messages into applications without duplicate processing
-or silent loss.
+Produce normalized, source-referenced text from private attachments without
+executing active content or losing unsupported/failed files.
 
 ## Phase 1
 
@@ -97,13 +97,58 @@ in Git.
 ## Explicitly excluded
 
 - AI extraction
-- File parsing or OCR
+- OCR execution (images and scanned PDFs are review-required)
 - Clarification email
 - DOCX generation
 - Contract delivery
 - Reporting and XLSX export
-- Phase 3 or later implementation
+- Phase 4 or later implementation
+
+## Phase 3 implementation
+
+- [x] Add a library-independent `DocumentParser` registry.
+- [x] Add a separate Phase 3 migration and apply it to hosted Supabase.
+- [x] Add atomic claims, current results, immutable attempts, retry, and audit.
+- [x] Parse DOCX paragraphs, headings, list items, and tables.
+- [x] Parse text PDFs with stable page markers.
+- [x] Parse non-empty XLSX sheets with row/cell references and safe formulas.
+- [x] Parse TXT/CSV with BOM and CSV formula-injection handling.
+- [x] Route validated images and scanned PDFs to `OCR_REQUIRED`.
+- [x] Define a deferred `OcrProvider`, `OcrResult`, and quality metrics without
+  installing or claiming an OCR engine.
+- [x] Validate signatures, MIME/extensions, checksums, macros, archives, and limits.
+- [x] Add admin parse/retry/batch actions and specialist result visibility.
+- [x] Add CLI commands and synthetic fixtures.
+- [x] Pass 28 hosted integration tests across Phase 1, Phase 2, and Phase 3.
+- [x] Parse the existing real `phase2-live.txt` attachment.
+- [x] Pass the five-format Mail.ru live document acceptance.
+- [x] Pass final lint, typecheck, unit, integration, live, build, and audit checks.
+
+OCR engine status: intentionally not installed or accepted. On the current
+Windows workstation, Docker and WSL command-line entry points exist, but no WSL
+distribution is registered and the Docker daemon is not running. Python,
+Tesseract, Ghostscript, and OCRmyPDF are not available on PATH. Image/scanned
+PDF results therefore remain `review_required / OCR_REQUIRED`.
+
+## Phase 3 acceptance
+
+Acceptance completed on 2026-07-23 against the configured Mail.ru INBOX,
+private hosted Supabase Storage, and linked hosted database:
+
+- the exact five-attachment live message was ingested idempotently;
+- DOCX paragraphs/table text, PDF page text, and XLSX sheet/row/cell text parsed;
+- stable `[PAGE 1]` and `[SHEET: Request]` source markers persisted;
+- PNG became `review_required / OCR_REQUIRED`;
+- safe RTF became `unsupported / UNSUPPORTED_FORMAT`;
+- repeating ingestion and parsing created no duplicate application, attachment,
+  current result, or attempt;
+- results persisted through a fresh server client;
+- active specialist private access passed and anonymous access was denied;
+- immutable attempts and required audit events persisted;
+- 84 unit/contract tests and 28 hosted integration tests passed;
+- lint, strict typecheck, production build, and zero-vulnerability audit passed.
 
 ## Next phase rule
 
-Phase 3 must not begin without a separate direct user instruction.
+Phase 4 must not begin without completed Phase 3 live acceptance and a separate
+direct user instruction.

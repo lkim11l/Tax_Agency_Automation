@@ -82,7 +82,7 @@ build.
 
 Reason:
 The same deterministic commands run locally and in CI. The lock file includes
-security overrides for PostCSS 8.5.10 and Sharp 0.35.0 because the versions
+security overrides for PostCSS 8.5.22 and Sharp 0.35.0 because the versions
 transitively selected by Next.js had published advisories.
 
 ## ADR-008 — Phase 1 PostgreSQL schema and RLS
@@ -151,6 +151,52 @@ Polling works locally and can later be scheduled by the selected deployment
 platform without committing to premature background-job infrastructure.
 Mailbox-scoped identity survives missing Message-ID values and UIDVALIDITY
 changes. The provider boundary keeps business logic independent from ImapFlow.
+
+## ADR-012 — Versioned parser registry and durable parse attempts
+
+Status: Accepted
+
+Decision:
+Use a `DocumentParser` interface and registry with Mammoth 1.12.0 for DOCX,
+PDF.js 4.10.38 for text PDFs, ExcelJS 4.4.0 for XLSX, and CSV Parse 7.0.1.
+Use Cheerio 1.0.0 only to traverse Mammoth's generated logical HTML and Yauzl
+3.4.0 to inspect Office ZIP metadata before extraction. PDF.js 4.10.38 is
+selected instead of 6.1.200 because the current release requires Node.js
+22.13+, while the project still supports Node.js 20.9+. Override ExcelJS's
+transitive UUID with 11.1.1 to remove the published buffer-bounds advisory.
+
+Keep the detailed queue status on `attachments`, the current result in one
+`parsed_documents` row per attachment, and every processing attempt in immutable
+`document_parse_attempts`. Claim and finalize through service-role-only
+PostgreSQL functions; user-facing retries are admin-only.
+
+Reason:
+The registry keeps workflow code independent from replaceable file libraries.
+Signature and archive checks run before complex parsing. A current-result row
+makes the UI simple, while immutable attempts preserve failure and retry
+evidence. Database claims and finalization prevent concurrent duplicate parsing
+and partial state.
+
+## ADR-013 — OCR remains an optional provider stage
+
+Status: Accepted
+
+Decision:
+Define `OcrProvider`, `OcrResult`, per-page OCR data, and provider-independent
+quality metrics without installing an OCR engine in Phase 3. Keep image and
+scanned-PDF parser outcomes as `review_required / OCR_REQUIRED`. A future OCR
+coordinator will consume only those outcomes and use the existing parse
+finalization path.
+
+Prefer an isolated, resource-limited Linux container/worker with Tesseract
+`rus+eng` and OCRmyPDF over a native production Windows installation. Do not
+send source documents to OpenAI Vision or another LLM for OCR.
+
+Reason:
+OCRmyPDF/Tesseract brings Python and native PDF/image dependencies and processes
+untrusted complex files. Deferring the engine keeps Phase 3 reproducible while
+the provider contract prevents future OCR from coupling the working DOCX, PDF,
+XLSX, TXT, and CSV parsers to one executable or deployment platform.
 
 ## Pending decisions
 

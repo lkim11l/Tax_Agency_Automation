@@ -115,3 +115,25 @@ generated rows and objects.
 - Runtime: production login/logout, anonymous redirect, admin UI sync,
   correspondence rendering, and restart persistence passed
 - Negative auth: safe error confirmed without exposing the real password
+
+## Phase 3 document acceptance
+
+`tests/integration/hosted-documents.test.ts` uses synthetic in-memory
+DOCX/PDF/XLSX/image/unsupported fixtures. It verifies:
+
+- current results and immutable attempts;
+- atomic `FOR UPDATE SKIP LOCKED` claims;
+- DOCX/PDF/XLSX source text and markers;
+- image `OCR_REQUIRED` and unsupported fallback;
+- retry behavior and one current result per attachment;
+- anonymous, inactive specialist, active specialist, and admin RLS;
+- admin-only parse requests;
+- private Storage signed access;
+- constraints and safe audit metadata.
+
+User RLS assertions use only public-key user sessions. The server secret is
+limited to fixture setup, worker execution, and cleanup.
+
+The separate `npm run test:documents:live` command verifies the exact Mail.ru
+message and five private hosted attachments. Phase 3 acceptance completed on
+2026-07-23 with 28 hosted integration tests and the real live command passing.

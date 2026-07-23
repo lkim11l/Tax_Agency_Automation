@@ -42,5 +42,6 @@ customer-data/
 private-documents/
 uploads/
 generated-contracts/
+tmp/
 *.pem
 *.key

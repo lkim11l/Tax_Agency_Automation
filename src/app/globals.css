@@ -301,6 +301,22 @@ th {
   white-space: pre-wrap;
 }
 
+.document-card {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.document-text {
+  background: #f7f7f7;
+  border: 1px solid var(--border);
+  max-height: 32rem;
+  overflow: auto;
+  padding: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .timeline {
   display: grid;
   gap: 0.8rem;
