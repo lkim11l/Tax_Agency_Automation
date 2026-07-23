@@ -48,28 +48,32 @@ Create the internal data foundation before connecting real email.
 
 ## Tasks
 
-- [ ] Define database schema.
-- [ ] Add users.
-- [ ] Add applications.
-- [ ] Add counterparties.
-- [ ] Add email messages.
-- [ ] Add attachments.
-- [ ] Add extracted fields.
-- [ ] Add contract templates.
-- [ ] Add contracts and versions.
-- [ ] Add status history.
-- [ ] Add audit events.
-- [ ] Add database migrations.
-- [ ] Seed safe demonstration data.
-- [ ] Build application list.
-- [ ] Build application detail page.
-- [ ] Add status changes.
-- [ ] Add manual application creation for testing.
-- [ ] Add basic search and filters.
+- [x] Define database schema.
+- [x] Add users.
+- [x] Add applications.
+- [x] Add counterparties.
+- [x] Add email messages.
+- [x] Add attachments.
+- [x] Add extracted fields.
+- [x] Add contract templates.
+- [x] Add contracts and versions.
+- [x] Add status history.
+- [x] Add audit events.
+- [x] Add database migrations.
+- [x] Seed safe demonstration data.
+- [x] Build application list.
+- [x] Build application detail page.
+- [x] Add status changes.
+- [x] Add manual application creation for testing.
+- [x] Add basic search and filters.
 
 ## Acceptance gate
 
 A signed-in specialist can create, view, edit, and track an application, and every important change is persisted and audited.
+
+Implementation status: code-complete. This acceptance gate remains pending until
+the migration and authenticated workflows are verified against a real local or
+hosted Supabase database.
 
 ---
 

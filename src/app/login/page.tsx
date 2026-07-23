@@ -35,7 +35,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {params.error ? (
           <p className="error-message" role="alert">
-            Sign-in failed. Check your email and password.
+            {params.error === "inactive"
+              ? "This account is inactive. Contact an administrator."
+              : "Sign-in failed. Check your email and password."}
           </p>
         ) : null}
 

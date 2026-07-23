@@ -106,6 +106,21 @@ Email ingestion
 - Keep provider message IDs.
 - Use structured logs without secrets.
 
+## Phase 1 data access
+
+- Server Components and Server Actions call focused repositories under
+  `src/modules/*/repository.ts`.
+- Repositories use the signed-in Supabase SSR client and require an active
+  `profiles` row before operational access.
+- Browser code never receives the service-role key.
+- PostgreSQL RLS is the final authorization boundary.
+- Application status history and audit records are created by database triggers
+  in the same transaction as the application mutation.
+- Application numbers use a PostgreSQL sequence and a unique constraint; row
+  counts are never used.
+- `status_history` and `audit_events` are append-only for authenticated users.
+- `contract_versions` rejects update and delete operations at the database level.
+
 ## Deployment
 
 Keep deployment simple:

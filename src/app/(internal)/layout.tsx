@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { requireOperationalContextOrRedirect } from "@/lib/auth/context";
 
 import { signOut } from "./actions";
 
 const navigation = [
   { href: "/applications", label: "Applications" },
+  { href: "/counterparties", label: "Counterparties" },
   { href: "/templates", label: "Templates" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
@@ -17,18 +17,7 @@ export default async function InternalLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createClient();
-  if (!supabase) {
-    redirect("/login?reason=configuration");
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { profile } = await requireOperationalContextOrRedirect();
 
   return (
     <div className="shell">
@@ -42,6 +31,7 @@ export default async function InternalLayout({
           ))}
         </nav>
         <form action={signOut}>
+          <p className="sidebar-user">{profile.full_name ?? profile.email}</p>
           <button type="submit">Sign out</button>
         </form>
       </aside>

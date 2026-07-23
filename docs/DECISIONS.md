@@ -85,6 +85,50 @@ The same deterministic commands run locally and in CI. The lock file includes
 security overrides for PostCSS 8.5.10 and Sharp 0.35.0 because the versions
 transitively selected by Next.js had published advisories.
 
+## ADR-008 — Phase 1 PostgreSQL schema and RLS
+
+Status: Accepted
+
+Decision:
+Use one Supabase migration for the Phase 1 relational foundation. Enforce
+documented statuses with PostgreSQL enums, incomplete future data with nullable
+columns, and data integrity with foreign keys and check constraints. Require an
+active `profiles` row for operational reads and writes. Grant specialists only
+the table columns used by Phase 1; reserve deletion and profile administration
+for administrators.
+
+Reason:
+Database constraints and RLS remain effective even if a UI or Server Action is
+bypassed. Column-level grants prevent Phase 1 clients from changing immutable
+provenance fields or writing future-phase entities.
+
+## ADR-009 — Atomic history, audit, and application numbering
+
+Status: Accepted
+
+Decision:
+Generate application numbers from a PostgreSQL sequence with a unique
+constraint. Record application creation, updates, status changes, assignments,
+counterparty changes, and template metadata changes with database triggers.
+Status history and audit writes occur in the same transaction as the mutation.
+
+Reason:
+Counting rows is collision-prone. Database triggers guarantee that supported
+write paths cannot accidentally omit required history or audit events.
+
+## ADR-010 — Focused repositories and Zod validation
+
+Status: Accepted
+
+Decision:
+Keep Supabase queries in focused server-only repositories for applications,
+counterparties, and template metadata. Validate form input with Zod 4.4.3 before
+repository calls.
+
+Reason:
+This keeps UI components free of query and business logic while avoiding a
+premature universal repository framework.
+
 ## Pending decisions
 
 Do not resolve without evidence or user input:

@@ -1,5 +1,6 @@
 const protectedPrefixes = [
   "/applications",
+  "/counterparties",
   "/templates",
   "/reports",
   "/settings",

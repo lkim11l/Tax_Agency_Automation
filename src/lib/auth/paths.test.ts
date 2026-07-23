@@ -6,6 +6,7 @@ describe("isProtectedPath", () => {
   it.each([
     "/applications",
     "/applications/123",
+    "/counterparties",
     "/templates",
     "/reports",
     "/settings",

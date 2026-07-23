@@ -2,72 +2,63 @@
 
 ## Current phase
 
-Phase 0 — Repository foundation (complete)
+Phase 1 — Application registry (implementation complete; real Supabase acceptance pending)
 
 ## Sprint goal
 
-Create a clean, reproducible, testable application baseline. Do not implement email, AI extraction, or document generation yet.
+Create the internal database foundation and a working manual application
+registry before connecting email or AI services.
 
-## Allowed tasks
+## Completed implementation
 
-Complete in this exact order:
+- [x] Preserve Phase 0 and confirm a clean repository.
+- [x] Define profiles and MVP roles.
+- [x] Define applications and collision-safe application numbers.
+- [x] Define counterparties.
+- [x] Define future email message and attachment schema without integration.
+- [x] Define future extracted field schema without AI.
+- [x] Define template metadata, contracts, and immutable contract versions.
+- [x] Define status history and append-only audit events.
+- [x] Add constraints, indexes, triggers, and RLS policies.
+- [x] Add repeatable safe demonstration seed data.
+- [x] Add focused repositories and server-side validation.
+- [x] Build application list, filters, and honest error/empty states.
+- [x] Build manual application creation.
+- [x] Build application detail editing, assignment, status, and comments.
+- [x] Show related entity counts, status history, and audit.
+- [x] Build minimal counterparty create/search/edit operations.
+- [x] Build template metadata create/list/edit operations.
+- [x] Add unit and migration-contract tests.
+- [x] Pass lint, strict typecheck, unit tests, and production build.
 
-- [x] Inspect repository state and preserve existing user work.
-- [x] Initialize a Next.js TypeScript application in the repository root.
-- [x] Enable strict TypeScript.
-- [x] Add linting and formatting.
-- [x] Add unit test runner.
-- [x] Add scripts:
-  - [x] `dev`
-  - [x] `lint`
-  - [x] `typecheck`
-  - [x] `test`
-  - [x] `build`
-- [x] Add `.env.example` with placeholders only.
-- [x] Add secure `.gitignore`.
-- [x] Add initial database configuration.
-- [x] Add an authenticated application boundary.
-- [x] Add `/api/health`.
-- [x] Add a minimal internal layout:
-  - [x] Applications
-  - [x] Templates
-  - [x] Reports
-  - [x] Settings
-- [x] Add CI validation.
-- [x] Update README setup instructions.
-- [x] Run all validation commands.
-- [x] Mark Phase 0 roadmap items complete only after validation.
+## Acceptance verification
 
-## UI limitation
+- [ ] Apply migrations to a clean local Supabase database.
+- [ ] Create a real Dashboard user and verify active-profile access.
+- [ ] Verify inactive-profile denial against RLS.
+- [ ] Exercise create/edit/status/comment/search/filter flows against PostgreSQL.
+- [ ] Verify persisted status history and audit records.
+- [ ] Verify missing application returns 404 with a configured database.
 
-Use plain components and basic styling. Do not add:
-- animation;
-- charts;
-- custom theme system;
-- marketing landing page;
-- complex dashboard;
-- decorative components.
+Blocked locally on 2026-07-22: Docker Desktop is installed but its Linux daemon
+is not running, `.env.local` is absent, and no hosted Supabase credentials were
+provided. Unit tests and production build do not substitute for these checks.
 
-## Current blockers
+## Explicitly excluded
 
-- Email provider is not selected.
-- Approved contract templates have not yet been added.
-- Required field matrix has not yet been confirmed.
-- Customer sample documents have not yet been added.
+- Email provider integration
+- AI extraction
+- File parsing or OCR
+- Clarification email
+- DOCX generation
+- Contract delivery
+- Reporting and XLSX export
+- Phase 2 or later implementation
 
-These blockers do not prevent Phase 0.
+## Remaining setup
 
-## Sprint completion report
-
-- Framework: Next.js 16.2.11, React 19.2.8, strict TypeScript 6.0.3.
-- Database: Supabase PostgreSQL; schema work remains in Phase 1.
-- Authentication: Supabase Auth with SSR session handling; public registration
-  and anonymous sign-in are disabled.
-- Storage: Supabase Storage initial configuration; application buckets and
-  policies are deferred until their owning roadmap phase.
-- Test runner: Vitest 4.1.10.
-- Deployment target: not selected.
-- Validation: lint, typecheck, 10 unit tests, production build, runtime health,
-  unauthenticated redirect, login response, and 404 response all passed.
-- Remaining setup: create/select a Supabase project, provision a user, configure
-  `.env.local`, and select a deployment target.
+1. Start Docker Desktop or link a dedicated hosted Supabase project.
+2. Run `npm run db:reset` locally, or review and run `npx supabase db push`.
+3. Create the first user in Supabase Dashboard and configure `.env.local`.
+4. Complete `docs/INTEGRATION_TESTING.md`.
+5. Mark Phase 1 acceptance complete only after real persistence is verified.
