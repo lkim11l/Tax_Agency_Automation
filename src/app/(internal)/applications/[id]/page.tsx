@@ -29,6 +29,15 @@ import {
   runPendingExtractionsAction,
 } from "@/modules/extraction/actions";
 import { getApplicationExtraction } from "@/modules/extraction/repository";
+import {
+  createDraftAction,
+  recalculateCompletenessAction,
+  sendDraftAction,
+  transitionDraftAction,
+  updateDraftAction,
+} from "@/modules/clarification/actions";
+import { completenessRuleSets } from "@/modules/clarification/rules";
+import { getClarificationState } from "@/modules/clarification/service";
 
 export const metadata: Metadata = {
   title: "Application detail",
@@ -57,6 +66,7 @@ export default async function ApplicationDetailPage({
     emails,
     documentData,
     extractionData,
+    clarification,
   ] =
     await Promise.all([
       getApplicationActivity(id),
@@ -66,6 +76,7 @@ export default async function ApplicationDetailPage({
       listApplicationEmails(id),
       listApplicationDocuments(id),
       getApplicationExtraction(id),
+      getClarificationState(id),
     ]);
 
   return (
@@ -158,6 +169,121 @@ export default async function ApplicationDetailPage({
             <dd>{activity.counts.contracts}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="panel section-gap">
+        <div className="page-heading">
+          <div>
+            <h3>Completeness and clarification</h3>
+            <p className="muted">
+              Deterministic Phase 5 checks. Messages are sent only after explicit
+              specialist approval.
+            </p>
+          </div>
+          <form action={recalculateCompletenessAction} className="inline-actions">
+            <input type="hidden" name="application_id" value={application.id} />
+            <select name="rule_set_id" defaultValue={clarification.latestRun?.rule_set_id ?? "standard-contract"}>
+              {completenessRuleSets.map((ruleSet) => (
+                <option value={ruleSet.id} key={ruleSet.id}>
+                  {ruleSet.label} v{ruleSet.version}
+                </option>
+              ))}
+            </select>
+            <button type="submit">Recalculate completeness</button>
+          </form>
+        </div>
+
+        {clarification.latestRun ? (
+          <>
+            <dl className="summary-grid">
+              <div><dt>Result</dt><dd>{clarification.latestRun.percentage}%</dd></div>
+              <div><dt>Complete</dt><dd>{clarification.latestRun.complete_count}/{clarification.latestRun.total_count}</dd></div>
+              <div><dt>Missing</dt><dd>{clarification.latestRun.missing_count}</dd></div>
+              <div><dt>Conflicts</dt><dd>{clarification.latestRun.conflict_count}</dd></div>
+              <div><dt>Low confidence</dt><dd>{clarification.latestRun.low_confidence_count}</dd></div>
+              <div><dt>Ready</dt><dd>{clarification.latestRun.is_ready ? "yes" : "no"}</dd></div>
+            </dl>
+            {clarification.fields.some((field) => field.is_blocking) ? (
+              <ul className="timeline">
+                {clarification.fields.filter((field) => field.is_blocking).map((field) => (
+                  <li key={field.id}>
+                    <strong>{field.label}: {field.status}</strong>
+                    <span>{field.question}</span>
+                    <span>{field.reason ?? "blocking rule"}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="muted">All required fields satisfy the selected rule set.</p>}
+
+            {!clarification.latestRun.is_ready ? (
+              <form action={createDraftAction} className="stack section-gap">
+                <input type="hidden" name="application_id" value={application.id} />
+                <input type="hidden" name="completeness_run_id" value={clarification.latestRun.id} />
+                <label className="field">
+                  Client email
+                  <input name="recipient" type="email" required defaultValue={clarification.suggestedRecipient} />
+                </label>
+                <button type="submit">Create clarification draft</button>
+              </form>
+            ) : null}
+          </>
+        ) : <p className="muted">Completeness has not been calculated.</p>}
+
+        {clarification.drafts.map((draft) => (
+          <article className="document-card section-gap" key={draft.id}>
+            {(() => {
+              const deliveryUnknown = clarification.attempts.some(
+                (attempt) =>
+                  attempt.draft_id === draft.id &&
+                  attempt.status === "delivery_unknown",
+              );
+              return (
+                <>
+            <div className="page-heading">
+              <strong>Draft v{draft.version}</strong>
+              <span>{draft.status}</span>
+            </div>
+            {["draft", "awaiting_approval", "approved", "send_failed"].includes(draft.status) && !deliveryUnknown ? (
+              <form action={updateDraftAction} className="stack">
+                <input type="hidden" name="application_id" value={application.id} />
+                <input type="hidden" name="draft_id" value={draft.id} />
+                <label className="field">Recipient<input name="recipient" type="email" required defaultValue={draft.recipient} /></label>
+                <label className="field">Subject<input name="subject" required maxLength={500} defaultValue={draft.subject} /></label>
+                <label className="field">Body<textarea name="body_text" required rows={14} maxLength={50_000} defaultValue={draft.body_text} /></label>
+                <button type="submit">Save draft</button>
+              </form>
+            ) : (
+              <><p><strong>To:</strong> {draft.recipient}</p><p><strong>{draft.subject}</strong></p><pre className="email-body">{draft.body_text}</pre></>
+            )}
+            <div className="inline-actions section-gap">
+              {draft.status === "draft" ? (
+                <form action={transitionDraftAction}>
+                  <input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="submit" />
+                  <button type="submit">Submit for approval</button>
+                </form>
+              ) : null}
+              {draft.status === "awaiting_approval" ? (
+                <><form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="approve" /><button type="submit">Approve</button></form>
+                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="return" /><button type="submit">Return to editing</button></form></>
+              ) : null}
+              {(draft.status === "approved" || draft.status === "send_failed") && !deliveryUnknown ? (
+                <form action={sendDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><button type="submit">{draft.status === "send_failed" ? "Retry safe failure" : "Send via Mail.ru"}</button></form>
+              ) : null}
+              {["draft", "awaiting_approval", "approved", "send_failed"].includes(draft.status) ? (
+                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="cancel" /><button type="submit">Cancel</button></form>
+              ) : null}
+            </div>
+            {deliveryUnknown ? (
+              <p className="alert alert-error">
+                Delivery is unknown. Reconcile the recipient mailbox before any
+                edit or retry.
+              </p>
+            ) : null}
+                </>
+              );
+            })()}
+          </article>
+        ))}
       </section>
 
       <section className="panel section-gap">

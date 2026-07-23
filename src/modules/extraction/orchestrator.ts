@@ -28,6 +28,7 @@ import {
 import { buildExtractionInput, extractionSystemPrompt } from "./prompt";
 import {
   loadExtractionSources,
+  loadCurrentExtraction,
   resolveExtractionInitiator,
 } from "./repository";
 import type { ExtractionRunResult } from "./types";
@@ -73,20 +74,24 @@ export async function runExtraction(input: {
   initiatedBy?: string;
   force?: boolean;
   supabase?: SupabaseClient;
+  deltaSourceIds?: string[];
 }): Promise<ExtractionRunResult> {
   const supabase = input.supabase ?? createAdminClient();
   const initiatedBy =
     input.initiatedBy ?? (await resolveExtractionInitiator(supabase));
-  const sources = await loadExtractionSources(input.applicationId, supabase);
-  if (sources.length === 0) {
+  const allSources = await loadExtractionSources(input.applicationId, supabase);
+  const requestedSources = input.deltaSourceIds?.length
+    ? allSources.filter((source) => input.deltaSourceIds?.includes(source.sourceId))
+    : allSources;
+  if (requestedSources.length === 0) {
     throw new ExtractionError(
       "NO_ELIGIBLE_SOURCES",
       "No parsed text or email body is available for extraction.",
     );
   }
 
-  const candidates = findDeterministicCandidates(sources);
-  const fragments = selectRelevantFragments(sources, candidates);
+  const candidates = findDeterministicCandidates(requestedSources);
+  const fragments = selectRelevantFragments(requestedSources, candidates);
   const sourceText = formatFragments(fragments);
   const candidateText = formatCandidates(candidates);
   const requestInput = buildExtractionInput({
@@ -100,11 +105,11 @@ export async function runExtraction(input: {
     );
   }
 
-  const fingerprint = createExtractionFingerprint(sources);
+  const fingerprint = createExtractionFingerprint(allSources);
   const begin = await supabase.rpc("begin_extraction_run", {
     p_application_id: input.applicationId,
     p_input_fingerprint: fingerprint,
-    p_source_ids: sources.map((source) => source.sourceId),
+    p_source_ids: requestedSources.map((source) => source.sourceId),
     p_provider: EXTRACTION_PROVIDER,
     p_model: EXTRACTION_MODEL,
     p_prompt_version: EXTRACTION_PROMPT_VERSION,
@@ -172,7 +177,7 @@ export async function runExtraction(input: {
           }),
       });
       partials.push(
-        enforceSourceAttribution(response.extraction, sources, chunk),
+        enforceSourceAttribution(response.extraction, requestedSources, chunk),
       );
       requestId ??= response.requestId;
       if (response.inputTokens !== null) {
@@ -185,6 +190,10 @@ export async function runExtraction(input: {
       }
     }
 
+    const baseline = input.deltaSourceIds?.length
+      ? await loadCurrentExtraction(input.applicationId, supabase)
+      : null;
+    if (baseline) partials.unshift(baseline);
     const extraction = mergeExtractions(partials, candidates);
     const completed = await supabase.rpc("complete_extraction_run", {
       p_run_id: claim.run_id,

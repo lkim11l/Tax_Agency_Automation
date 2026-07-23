@@ -225,6 +225,29 @@ validation and source enforcement defend against hallucination, malformed
 identifiers, and document prompt injection. The provider boundary and persisted
 versions keep future model changes measurable and reviewable.
 
+## ADR-015 — Deterministic completeness and human-approved clarification
+
+Status: Accepted
+
+Decision:
+Keep required-field rules as three versioned code-owned rule sets. Persist every
+calculation and its field-level evidence with an extraction fingerprint.
+Generate the Russian clarification draft deterministically; do not use AI
+rewriting in Phase 5.
+
+Extend the provider-neutral email boundary with explicit SMTP sending. Persist a
+send claim and stable RFC Message-ID before network I/O. Permit retry only after
+a known pre-delivery failure; treat timeout or disconnect during/after SMTP DATA
+as unknown delivery and require reconciliation. Process replies idempotently
+through `In-Reply-To`/`References`, parse and extract only delta sources, merge
+them with the current extraction, and preserve manual corrections.
+
+Reason:
+Completeness and legal questions must be reproducible and auditable. Mandatory
+human approval prevents automatic client communication. The conservative
+unknown-delivery state avoids duplicate email, while delta extraction controls
+token use and retains reviewed data.
+
 ## Pending decisions
 
 Do not resolve without evidence or user input:

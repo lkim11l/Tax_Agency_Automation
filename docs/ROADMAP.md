@@ -186,19 +186,19 @@ Identify missing fields and run a controlled clarification loop with the client.
 
 ## Tasks
 
-- [ ] Define required fields per template.
-- [ ] Calculate application completeness.
-- [ ] Show missing fields.
-- [ ] Show conflicting fields.
-- [ ] Generate an editable clarification draft.
-- [ ] Require specialist approval before sending.
-- [ ] Send from the connected mailbox.
-- [ ] Store sent clarification.
-- [ ] Link client reply.
-- [ ] Re-run extraction on new information.
-- [ ] Recalculate completeness.
-- [ ] Add send failure handling.
-- [ ] Add end-to-end clarification test.
+- [x] Define required fields per template.
+- [x] Calculate application completeness.
+- [x] Show missing fields.
+- [x] Show conflicting fields.
+- [x] Generate an editable clarification draft.
+- [x] Require specialist approval before sending.
+- [x] Send from the connected mailbox.
+- [x] Store sent clarification.
+- [x] Link client reply.
+- [x] Re-run extraction on new information.
+- [x] Recalculate completeness.
+- [x] Add send failure handling.
+- [x] Add end-to-end clarification test.
 
 ## Acceptance gate
 

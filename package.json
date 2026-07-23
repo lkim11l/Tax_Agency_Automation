@@ -27,7 +27,8 @@
     "test:email:live": "node --env-file=.env.local --import tsx scripts/email-live.ts",
     "test:documents:live": "node --env-file=.env.local --import tsx scripts/documents-live.ts",
     "test:extraction:live": "node --env-file=.env.local --import tsx scripts/extraction-live.ts",
-    "test:extraction:eval": "node --env-file=.env.local --import tsx scripts/extraction-eval.ts"
+    "test:extraction:eval": "node --env-file=.env.local --import tsx scripts/extraction-eval.ts",
+    "test:clarification:live": "node --env-file=.env.local --import tsx scripts/clarification-live.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",

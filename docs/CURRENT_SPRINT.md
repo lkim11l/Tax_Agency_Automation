@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 4 — Structured AI extraction (complete)
+Phase 5 — Completeness and clarification (complete)
 
 ## Sprint goal
 
-Extract source-referenced contract facts from normalized text without inventing
-missing values or sending unsupported/OCR content to AI.
+Calculate evidence-based completeness and run a deterministic, human-approved
+clarification loop without generating a contract.
 
 ## Phase 1
 
@@ -97,11 +97,10 @@ in Git.
 ## Explicitly excluded
 
 - OCR execution (images and scanned PDFs are review-required)
-- Phase 5 completeness and clarification email
 - DOCX generation
 - Contract delivery
 - Reporting and XLSX export
-- Phase 5 or later implementation
+- Phase 6 or later implementation
 
 ## Phase 3 implementation
 
@@ -185,7 +184,50 @@ and real OpenAI Responses API:
 - lint, strict typecheck, 105 unit tests, 33 hosted integration tests, production
   build, and zero-vulnerability audit passed.
 
+## Phase 5 implementation
+
+- [x] Add three versioned deterministic required-field rule sets.
+- [x] Add evidence-aware completeness calculation and field results.
+- [x] Persist extraction fingerprints, totals, blocking state, and audit.
+- [x] Add editable deterministic Russian clarification drafts.
+- [x] Add approval revocation/versioning and explicit lifecycle actions.
+- [x] Extend Mail.ru provider with SMTP send and persisted idempotent attempts.
+- [x] Add conservative safe-failure and delivery-unknown handling.
+- [x] Store outbound correspondence and standard reply identifiers.
+- [x] Add idempotent reply claims, new-attachment parsing, and delta extraction.
+- [x] Preserve manual corrections and recalculate after reply.
+- [x] Add plain application-detail operations UI.
+- [x] Apply additive hosted migrations 006 and 007.
+- [x] Pass local unit tests and hosted Phase 5 RLS/persistence tests.
+- [x] Confirm one real SMTP delivery from the dedicated synthetic application.
+- [x] Receive and process the real Reply from the controlled external address.
+- [x] Complete final validation and documentation acceptance check.
+
+## Phase 5 acceptance
+
+Acceptance completed on 2026-07-23 using the dedicated synthetic application
+`REQ-2026-000130`, titled `TAA-PHASE5-LIVE-20260723-001`:
+
+- Mail.ru SMTP confirmed one explicitly approved clarification send;
+- a real Gmail Reply linked to the same application by RFC headers;
+- the reply was reconciled from the legacy outbound mailbox identity without a
+  resend, and the corrected identity contract is migration-backed;
+- delta extraction used only the new inbound email source ID;
+- the prior three manual corrections remained unchanged;
+- completeness recalculated with a persisted extraction fingerprint;
+- the result was honestly incomplete at 50% due to one conflict and five
+  low-confidence fields, so the application remained `needs_data_review`;
+- one inbound message and one reply run persisted;
+- repeated mailbox synchronization created no messages, links, runs, or model
+  calls;
+- required audit events persisted without bodies, credentials, or prompts;
+- 116 local tests and 36 hosted integration tests passed;
+- lint, strict typecheck, production build, live acceptance, and zero-vulnerability
+  audit passed.
+
+Phase 6 remains forbidden.
+
 ## Next phase rule
 
-Phase 5 must not begin without completed Phase 4 acceptance and a separate
+Phase 6 must not begin without completed Phase 5 acceptance and a separate
 direct user instruction.

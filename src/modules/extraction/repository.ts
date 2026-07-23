@@ -6,6 +6,17 @@ import { getOperationalContext } from "@/lib/auth/context";
 import { createAdminClient } from "@/lib/supabase/admin.server";
 
 import type { ExtractionSource } from "./types";
+import {
+  extractedValueSchema,
+  missingExtractedValue,
+  type ContractExtraction,
+} from "./schema";
+import {
+  extractionFieldNames,
+  organizationFieldNames,
+  signerFieldNames,
+  contractFieldNames,
+} from "./constants";
 
 function checksum(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -133,6 +144,39 @@ export async function resolveExtractionInitiator(
   const { data, error } = await query.order("created_at").limit(1).maybeSingle();
   if (error || !data) throw new Error("No active administrator is available.");
   return data.id as string;
+}
+
+export async function loadCurrentExtraction(
+  applicationId: string,
+  supabase: SupabaseClient = createAdminClient(),
+): Promise<ContractExtraction | null> {
+  const result = await supabase
+    .from("extracted_fields")
+    .select("field_name,structured_value")
+    .eq("application_id", applicationId);
+  if (result.error) throw new Error("Unable to load current extraction.");
+  if (!result.data?.length) return null;
+  const values = new Map(
+    result.data.map((row) => [
+      row.field_name,
+      extractedValueSchema.safeParse(row.structured_value),
+    ]),
+  );
+  const group = (names: readonly string[]) =>
+    Object.fromEntries(
+      names.map((name) => {
+        const parsed = values.get(name);
+        return [name, parsed?.success ? parsed.data : missingExtractedValue()];
+      }),
+    );
+  return {
+    extractionVersion: "contract-extraction-schema-v1",
+    organization: group(organizationFieldNames) as ContractExtraction["organization"],
+    signer: group(signerFieldNames) as ContractExtraction["signer"],
+    contract: group(contractFieldNames) as ContractExtraction["contract"],
+    conflicts: [],
+    warnings: extractionFieldNames.length ? ["Merged with the previous extraction during delta processing."] : [],
+  };
 }
 
 export type ExtractionFieldRecord = {

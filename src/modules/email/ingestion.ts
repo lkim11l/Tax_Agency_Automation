@@ -17,6 +17,10 @@ import type {
   MailboxSnapshot,
   ProviderMessage,
 } from "./types";
+import {
+  processClarificationReplies,
+  reconcileUnlinkedClarificationReplies,
+} from "@/modules/clarification/replies";
 
 type IngestRpcResult = {
   application_created: boolean;
@@ -37,6 +41,7 @@ function emptyResult(): IngestionResult {
     messagesProcessed: 0,
     repliesLinked: 0,
     unlinkedReplies: 0,
+    linkedReplyMessageIds: [],
   };
 }
 
@@ -285,6 +290,9 @@ export async function processSnapshot(
       if (processed.ingestion.duplicate) result.duplicateSkipped += 1;
       if (processed.ingestion.application_created) result.applicationCreated += 1;
       if (processed.ingestion.reply_linked) result.repliesLinked += 1;
+      if (processed.ingestion.reply_linked && !processed.ingestion.duplicate) {
+        result.linkedReplyMessageIds.push(processed.ingestion.email_message_id);
+      }
       if (processed.ingestion.unlinked_reply) result.unlinkedReplies += 1;
     } catch {
       result.errors += 1;
@@ -355,6 +363,11 @@ export async function syncMailbox(
       ? await provider.fetchIncoming(0)
       : preliminary;
     const result = await processSnapshot(supabase, snapshot);
+    const reconciled = await reconcileUnlinkedClarificationReplies(supabase);
+    result.linkedReplyMessageIds.push(...reconciled);
+    result.repliesLinked += reconciled.length;
+    result.unlinkedReplies = Math.max(0, result.unlinkedReplies - reconciled.length);
+    await processClarificationReplies(result.linkedReplyMessageIds, supabase);
     const lastUid = Math.max(
       Number(uidChanged ? 0 : current.data?.last_processed_uid ?? 0),
       ...snapshot.messages.map((message) => message.uid),

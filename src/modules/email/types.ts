@@ -42,8 +42,26 @@ export interface EmailProvider {
   verifySmtp(): Promise<void>;
   fetchIncoming(afterUid: number): Promise<MailboxSnapshot>;
   fetchByUid(uid: number): Promise<MailboxSnapshot>;
+  sendMessage(message: OutboundEmail): Promise<OutboundSendResult>;
   close(): Promise<void>;
 }
+
+export type OutboundEmail = {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  messageId: string;
+  inReplyTo?: string | null;
+  references?: string[];
+};
+
+export type OutboundSendResult = {
+  messageId: string;
+  response: string;
+  accepted: string[];
+  rejected: string[];
+};
 
 export type IngestionResult = {
   applicationCreated: number;
@@ -54,4 +72,5 @@ export type IngestionResult = {
   messagesProcessed: number;
   repliesLinked: number;
   unlinkedReplies: number;
+  linkedReplyMessageIds: string[];
 };

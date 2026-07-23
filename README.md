@@ -241,6 +241,7 @@ npm run test:email:live
 npm run test:documents:live
 npm run test:extraction:live
 npm run test:extraction:eval
+npm run test:clarification:live
 npm run build
 npm audit
 ```
@@ -275,6 +276,17 @@ application detail page. Only administrators can start the UI batch. Repeated
 unchanged runs use the persisted fingerprint cache. See
 `docs/AI_EXTRACTION.md`, `docs/AI_EVALUATION.md`, and
 `docs/AI_OPERATIONS.md`.
+
+## Completeness and clarification
+
+Phase 5 adds three versioned completeness rule sets and a deterministic Russian
+clarification draft on the application detail page. Specialists must explicitly
+submit and approve the draft before the Mail.ru send action becomes available.
+Editing approved content revokes approval. Replies are linked by standard email
+headers and trigger delta-only parsing/extraction plus a new completeness run.
+
+See `docs/CLARIFICATION_WORKFLOW.md` for operation, retry, idempotency, and the
+synthetic live acceptance command.
 
 Hosted integration tests require three dedicated Dashboard users in `.env.local`:
 

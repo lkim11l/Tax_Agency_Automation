@@ -3,7 +3,12 @@ import nodemailer from "nodemailer";
 
 import { parseMimeMessage } from "./mime";
 import type { EmailConfig } from "./config";
-import type { EmailProvider, MailboxSnapshot } from "./types";
+import type {
+  EmailProvider,
+  MailboxSnapshot,
+  OutboundEmail,
+  OutboundSendResult,
+} from "./types";
 
 export class MailruEmailProvider implements EmailProvider {
   readonly name = "mailru";
@@ -47,7 +52,13 @@ export class MailruEmailProvider implements EmailProvider {
   }
 
   async verifySmtp(): Promise<void> {
-    const transport = nodemailer.createTransport({
+    const transport = this.createSmtpTransport();
+    await transport.verify();
+    transport.close();
+  }
+
+  private createSmtpTransport() {
+    return nodemailer.createTransport({
       host: this.config.smtp.host,
       port: this.config.smtp.port,
       secure: this.config.smtp.secure,
@@ -55,9 +66,33 @@ export class MailruEmailProvider implements EmailProvider {
         user: this.config.smtp.username,
         pass: this.config.smtp.password,
       },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
     });
-    await transport.verify();
-    transport.close();
+  }
+
+  async sendMessage(message: OutboundEmail): Promise<OutboundSendResult> {
+    const transport = this.createSmtpTransport();
+    try {
+      const result = await transport.sendMail({
+        from: message.from,
+        to: message.to,
+        subject: message.subject,
+        text: message.text,
+        messageId: message.messageId,
+        inReplyTo: message.inReplyTo ?? undefined,
+        references: message.references,
+      });
+      return {
+        messageId: result.messageId,
+        response: result.response,
+        accepted: result.accepted.map(String),
+        rejected: result.rejected.map(String),
+      };
+    } finally {
+      transport.close();
+    }
   }
 
   async fetchIncoming(afterUid: number): Promise<MailboxSnapshot> {
