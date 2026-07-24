@@ -4,9 +4,9 @@ export default function NotFound() {
   return (
     <main className="status-page">
       <div className="status-card">
-        <h1>Page not found</h1>
-        <p>The requested page does not exist.</p>
-        <Link href="/applications">Go to applications</Link>
+        <h1>Страница не найдена</h1>
+        <p>Запрошенная страница не существует.</p>
+        <Link href="/applications">Перейти к заявкам</Link>
       </div>
     </main>
   );

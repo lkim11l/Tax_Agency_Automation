@@ -280,3 +280,18 @@ issuing a short-lived signed URL.
 
 Phase 9 concerns—deployment, scheduler, production onboarding, and operational
 hardening—are deliberately outside this boundary.
+
+## Autonomous processing and review boundary
+
+`application_processing_runs` owns one fingerprinted execution and its persisted
+stage state. The service composes existing parsing, extraction and completeness
+modules and reuses the extraction fingerprint cache.
+
+`extracted_field_acceptances` stores immutable source-and-value review events
+separately from manual corrections. A service-only PostgreSQL function holds an
+advisory lock, verifies value fingerprints and records each batch atomically.
+Only canonical equivalence or irrelevant candidates may resolve a conflict.
+
+The Russian compact review defaults to fields requiring attention and opens
+correction forms on demand. Processing may manage an unsent clarification draft,
+but cannot approve or send mail, approve a contract, or deliver a contract.

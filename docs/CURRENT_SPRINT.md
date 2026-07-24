@@ -395,3 +395,25 @@ Phase 9 was started by direct user instruction. Do not start post-MVP work.
 Current blocker: Vercel owner authentication/project linking, production
 Supabase separation, domain configuration and an owner-supervised restore
 environment are not available in this repository session.
+
+## Authorized post-MVP sprint — Autonomous processing and fast review
+
+- [x] Add an idempotent application-level processing claim and persisted stages.
+- [x] Connect parsing, cached extraction, deterministic normalization, safe field
+  acceptance, completeness and conditional clarification into one action.
+- [x] Store immutable acceptance events separately from manual corrections.
+- [x] Add deterministic validators and canonical comparison.
+- [x] Resolve irrelevant numeric candidates without hiding true conflicts.
+- [x] Add a transactional, audited and idempotent bulk acceptance action.
+- [x] Replace expanded correction forms with a compact Russian review panel.
+- [x] Keep clarification, contract approval and delivery behind human gates.
+- [x] Cancel obsolete unsent clarification drafts when data becomes complete.
+- [x] Make Russian the only selectable production interface language.
+- [x] Apply hosted migrations 006 and 007 without a remote reset.
+- [x] Verify `REQ-2026-000273` reaches 100% completeness and `data_complete`.
+- [ ] Deploy the committed build to Vercel and verify the exact production page.
+
+Hosted acceptance on 2026-07-24 confirmed 19 deterministic acceptance events,
+zero missing/conflicting/low-confidence blockers, 100% completeness, an
+idempotent cache hit on repeat, and cancellation of the obsolete unsent
+clarification draft. No message was sent and no contract was approved.

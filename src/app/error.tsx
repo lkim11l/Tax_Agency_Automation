@@ -16,10 +16,10 @@ export default function GlobalError({
   return (
     <main className="status-page">
       <div className="status-card">
-        <h1>Something went wrong</h1>
-        <p>The error was recorded. Try loading this page again.</p>
+        <h1>Произошла ошибка</h1>
+        <p>Ошибка зарегистрирована. Попробуйте загрузить страницу ещё раз.</p>
         <button type="button" onClick={reset}>
-          Try again
+          Повторить
         </button>
       </div>
     </main>

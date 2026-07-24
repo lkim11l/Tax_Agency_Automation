@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getLocale, localizeStatus } from "@/lib/i18n";
 import { ApplicationForm } from "@/components/application-form";
 import { ContractDeliveryPanel } from "@/components/contract-delivery-panel";
+import { ExtractionReviewPanel } from "@/components/extraction-review-panel";
 import { Feedback } from "@/components/feedback";
 import {
   appendNoteAction,
@@ -48,7 +49,7 @@ import { getContractState } from "@/modules/contracts/repository";
 import { getDeliveryState } from "@/modules/delivery/repository";
 
 export const metadata: Metadata = {
-  title: "Application detail",
+  title: "Карточка заявки",
 };
 
 export default async function ApplicationDetailPage({
@@ -60,6 +61,11 @@ export default async function ApplicationDetailPage({
 }) {
   const { id } = await params;
   const feedback = await searchParams;
+  const fieldFilter = ["all", "review", "conflict", "accepted", "missing"].includes(
+    (feedback as { field_filter?: string }).field_filter ?? "",
+  )
+    ? (feedback as { field_filter: "all" | "review" | "conflict" | "accepted" | "missing" }).field_filter
+    : "review";
   const application = await getApplication(id);
 
   if (!application) {
@@ -108,6 +114,15 @@ export default async function ApplicationDetailPage({
 
       <Feedback error={feedback.error} success={feedback.success} />
 
+      <ExtractionReviewPanel
+        applicationId={application.id}
+        fields={extractionData.fields}
+        conflicts={extractionData.conflicts}
+        acceptancePreview={extractionData.acceptancePreview}
+        filter={fieldFilter}
+        completeness={clarification.latestRun}
+      />
+
       <section className="panel section-gap">
         <h3>{locale === "ru" ? "Основные данные" : "Main data"}</h3>
         <ApplicationForm
@@ -131,7 +146,7 @@ export default async function ApplicationDetailPage({
 
       <div className="two-column section-gap">
         <section className="panel">
-          <h3>Change status</h3>
+          <h3>Изменить статус</h3>
           <form action={changeStatusAction} className="stack">
             <input type="hidden" name="application_id" value={application.id} />
             <label className="field">
@@ -148,40 +163,40 @@ export default async function ApplicationDetailPage({
               Reason
               <textarea name="reason" rows={3} maxLength={1000} />
             </label>
-            <button type="submit">Change status</button>
+            <button type="submit">Изменить статус</button>
           </form>
         </section>
 
         <section className="panel">
-          <h3>Add internal comment</h3>
+          <h3>Добавить внутренний комментарий</h3>
           <form action={appendNoteAction} className="stack">
             <input type="hidden" name="application_id" value={application.id} />
             <label className="field">
               Comment
               <textarea name="note" rows={5} required maxLength={4000} />
             </label>
-            <button type="submit">Add comment</button>
+            <button type="submit">Добавить комментарий</button>
           </form>
         </section>
       </div>
 
       <section className="panel section-gap">
-        <h3>Related entities</h3>
+        <h3>Связанные данные</h3>
         <dl className="summary-grid">
           <div>
-            <dt>Emails</dt>
+            <dt>Письма</dt>
             <dd>{activity.counts.emailMessages}</dd>
           </div>
           <div>
-            <dt>Attachments</dt>
+            <dt>Вложения</dt>
             <dd>{activity.counts.attachments}</dd>
           </div>
           <div>
-            <dt>Extracted fields</dt>
+            <dt>Извлечённые поля</dt>
             <dd>{activity.counts.extractedFields}</dd>
           </div>
           <div>
-            <dt>Contracts</dt>
+            <dt>Договоры</dt>
             <dd>{activity.counts.contracts}</dd>
           </div>
         </dl>
@@ -189,37 +204,37 @@ export default async function ApplicationDetailPage({
 
       <section className="panel section-gap" id="contract">
         <div className="page-heading">
-          <div><h3>Contract review and delivery</h3><p className="muted">Phase 7 binds every human decision and SMTP delivery to one immutable DOCX checksum.</p></div>
+          <div><h3>Проверка и отправка договора</h3><p className="muted">Каждое решение сотрудника и отправка привязаны к контрольной сумме неизменяемого DOCX.</p></div>
         </div>
-        {contractState.templates.length === 0 ? <p className="muted">No approved active DOCX template is available.</p> : (
+        {contractState.templates.length === 0 ? <p className="muted">Нет одобренного активного шаблона DOCX.</p> : (
           <form className="stack">
             <input type="hidden" name="application_id" value={application.id} />
-            <label className="field">Approved template<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} - {template.template_type}</option>)}</select></label>
+            <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} — {template.template_type}</option>)}</select></label>
             <div className="inline-actions">
-              <button formAction={checkContractEligibilityAction}>Check readiness</button>
-              <button formAction={generateContractAction}>Generate DOCX</button>
+              <button formAction={checkContractEligibilityAction}>Проверить готовность</button>
+              <button formAction={generateContractAction}>Сформировать DOCX</button>
             </div>
           </form>
         )}
         {contractState.isAdmin && contractState.templates.length > 0 && contractState.contracts.length > 0 ? (
           <form action={generateContractAction} className="stack section-gap">
             <input type="hidden" name="application_id" value={application.id} />
-            <label className="field">Approved template<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version}</option>)}</select></label>
+            <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version}</option>)}</select></label>
             <input type="hidden" name="force" value="1" />
-            <label className="field">Force-regeneration reason<input name="force_reason" required minLength={2} maxLength={1000} /></label>
-            <button>Force new immutable version</button>
+            <label className="field">Причина повторного формирования<input name="force_reason" required minLength={2} maxLength={1000} /></label>
+            <button>Создать новую неизменяемую версию</button>
           </form>
         ) : null}
         {contractState.contracts.map((contract) => (
           <article className="document-card section-gap" key={contract.id}>
-            <strong>{contract.contract_number ?? "Number pending"} - {contract.status}</strong>
+            <strong>{contract.contract_number ?? "Номер ещё не присвоен"} — {localizeStatus(contract.status, locale)}</strong>
             <p className="muted">{contract.template?.[0]?.name}</p>
             <ul className="timeline">{(contract.versions ?? []).sort((a, b) => b.version_number - a.version_number).map((version) => (
-              <li key={version.id}><strong>Version {version.version_number} - {version.status}</strong><span>{contract.current_version_id === version.id ? "Current version" : "Historical version"}</span><span>{version.generated_filename} - {version.file_size} bytes - {version.checksum.slice(0, 12)}</span><span>Completeness: {version.completeness_run_id}; extraction: {version.extraction_run_id ?? "manual/current values"}</span><span>{new Date(version.generated_at).toLocaleString()}</span><a href={`/api/contracts/versions/${version.id}`}>Download DOCX</a></li>
+              <li key={version.id}><strong>Версия {version.version_number} — {localizeStatus(version.status, locale)}</strong><span>{contract.current_version_id === version.id ? "Текущая версия" : "Предыдущая версия"}</span><span>{version.generated_filename} — {version.file_size} байт — {version.checksum.slice(0, 12)}</span><span>Комплектность: {version.completeness_run_id}; извлечение: {version.extraction_run_id ?? "ручные/текущие значения"}</span><span>{new Date(version.generated_at).toLocaleString("ru-RU")}</span><a href={`/api/contracts/versions/${version.id}`}>Скачать DOCX</a></li>
             ))}</ul>
           </article>
         ))}
-        {contractState.runs.some((run) => run.status === "failed") ? <details><summary>Generation failures</summary><ul>{contractState.runs.filter((run) => run.status === "failed").map((run) => <li key={run.id}>{run.safe_error_code ?? "GENERATION_FAILED"}</li>)}</ul></details> : null}
+        {contractState.runs.some((run) => run.status === "failed") ? <details><summary>Ошибки формирования</summary><ul>{contractState.runs.filter((run) => run.status === "failed").map((run) => <li key={run.id}>{run.safe_error_code ?? "Ошибка формирования"}</li>)}</ul></details> : null}
         <ContractDeliveryPanel
           applicationId={application.id}
           versions={contractState.contracts.flatMap((contract) => contract.versions ?? [])}
@@ -234,10 +249,10 @@ export default async function ApplicationDetailPage({
       <section className="panel section-gap">
         <div className="page-heading">
           <div>
-            <h3>Completeness and clarification</h3>
+            <h3>Комплектность и уточнение</h3>
             <p className="muted">
-              Deterministic Phase 5 checks. Messages are sent only after explicit
-              specialist approval.
+              Детерминированная проверка комплектности. Письма отправляются
+              только после явного одобрения специалистом.
             </p>
           </div>
           <form action={recalculateCompletenessAction} className="inline-actions">
@@ -249,19 +264,19 @@ export default async function ApplicationDetailPage({
                 </option>
               ))}
             </select>
-            <button type="submit">Recalculate completeness</button>
+            <button type="submit">Пересчитать комплектность</button>
           </form>
         </div>
 
         {clarification.latestRun ? (
           <>
             <dl className="summary-grid">
-              <div><dt>Result</dt><dd>{clarification.latestRun.percentage}%</dd></div>
-              <div><dt>Complete</dt><dd>{clarification.latestRun.complete_count}/{clarification.latestRun.total_count}</dd></div>
-              <div><dt>Missing</dt><dd>{clarification.latestRun.missing_count}</dd></div>
-              <div><dt>Conflicts</dt><dd>{clarification.latestRun.conflict_count}</dd></div>
-              <div><dt>Low confidence</dt><dd>{clarification.latestRun.low_confidence_count}</dd></div>
-              <div><dt>Ready</dt><dd>{clarification.latestRun.is_ready ? "yes" : "no"}</dd></div>
+              <div><dt>Результат</dt><dd>{clarification.latestRun.percentage}%</dd></div>
+              <div><dt>Заполнено</dt><dd>{clarification.latestRun.complete_count}/{clarification.latestRun.total_count}</dd></div>
+              <div><dt>Отсутствуют</dt><dd>{clarification.latestRun.missing_count}</dd></div>
+              <div><dt>Конфликты</dt><dd>{clarification.latestRun.conflict_count}</dd></div>
+              <div><dt>Низкая уверенность</dt><dd>{clarification.latestRun.low_confidence_count}</dd></div>
+              <div><dt>Готово</dt><dd>{clarification.latestRun.is_ready ? "да" : "нет"}</dd></div>
             </dl>
             {clarification.fields.some((field) => field.is_blocking) ? (
               <ul className="timeline">
@@ -273,21 +288,21 @@ export default async function ApplicationDetailPage({
                   </li>
                 ))}
               </ul>
-            ) : <p className="muted">All required fields satisfy the selected rule set.</p>}
+            ) : <p className="muted">Все обязательные поля соответствуют выбранным правилам.</p>}
 
             {!clarification.latestRun.is_ready ? (
               <form action={createDraftAction} className="stack section-gap">
                 <input type="hidden" name="application_id" value={application.id} />
                 <input type="hidden" name="completeness_run_id" value={clarification.latestRun.id} />
                 <label className="field">
-                  Client email
+                  Email клиента
                   <input name="recipient" type="email" required defaultValue={clarification.suggestedRecipient} />
                 </label>
-                <button type="submit">Create clarification draft</button>
+                <button type="submit">Создать черновик уточнения</button>
               </form>
             ) : null}
           </>
-        ) : <p className="muted">Completeness has not been calculated.</p>}
+        ) : <p className="muted">Комплектность ещё не рассчитана.</p>}
 
         {clarification.drafts.map((draft) => (
           <article className="document-card section-gap" key={draft.id}>
@@ -307,36 +322,36 @@ export default async function ApplicationDetailPage({
               <form action={updateDraftAction} className="stack">
                 <input type="hidden" name="application_id" value={application.id} />
                 <input type="hidden" name="draft_id" value={draft.id} />
-                <label className="field">Recipient<input name="recipient" type="email" required defaultValue={draft.recipient} /></label>
-                <label className="field">Subject<input name="subject" required maxLength={500} defaultValue={draft.subject} /></label>
-                <label className="field">Body<textarea name="body_text" required rows={14} maxLength={50_000} defaultValue={draft.body_text} /></label>
-                <button type="submit">Save draft</button>
+                <label className="field">Получатель<input name="recipient" type="email" required defaultValue={draft.recipient} /></label>
+                <label className="field">Тема<input name="subject" required maxLength={500} defaultValue={draft.subject} /></label>
+                <label className="field">Текст письма<textarea name="body_text" required rows={14} maxLength={50_000} defaultValue={draft.body_text} /></label>
+                <button type="submit">Сохранить черновик</button>
               </form>
             ) : (
-              <><p><strong>To:</strong> {draft.recipient}</p><p><strong>{draft.subject}</strong></p><pre className="email-body">{draft.body_text}</pre></>
+              <><p><strong>Кому:</strong> {draft.recipient}</p><p><strong>{draft.subject}</strong></p><pre className="email-body">{draft.body_text}</pre></>
             )}
             <div className="inline-actions section-gap">
               {draft.status === "draft" ? (
                 <form action={transitionDraftAction}>
                   <input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="submit" />
-                  <button type="submit">Submit for approval</button>
+                  <button type="submit">Отправить на одобрение</button>
                 </form>
               ) : null}
               {draft.status === "awaiting_approval" ? (
-                <><form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="approve" /><button type="submit">Approve</button></form>
-                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="return" /><button type="submit">Return to editing</button></form></>
+                <><form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="approve" /><button type="submit">Одобрить</button></form>
+                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="return" /><button type="submit">Вернуть на редактирование</button></form></>
               ) : null}
               {(draft.status === "approved" || draft.status === "send_failed") && !deliveryUnknown ? (
-                <form action={sendDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><button type="submit">{draft.status === "send_failed" ? "Retry safe failure" : "Send via Mail.ru"}</button></form>
+                <form action={sendDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><button type="submit">{draft.status === "send_failed" ? "Повторить безопасную отправку" : "Отправить через Mail.ru"}</button></form>
               ) : null}
               {["draft", "awaiting_approval", "approved", "send_failed"].includes(draft.status) ? (
-                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="cancel" /><button type="submit">Cancel</button></form>
+                <form action={transitionDraftAction}><input type="hidden" name="application_id" value={application.id} /><input type="hidden" name="draft_id" value={draft.id} /><input type="hidden" name="workflow_action" value="cancel" /><button type="submit">Отменить</button></form>
               ) : null}
             </div>
             {deliveryUnknown ? (
               <p className="alert alert-error">
-                Delivery is unknown. Reconcile the recipient mailbox before any
-                edit or retry.
+                Результат отправки неизвестен. Перед изменением или повтором
+                проверьте почтовый ящик получателя.
               </p>
             ) : null}
                 </>
@@ -347,24 +362,24 @@ export default async function ApplicationDetailPage({
       </section>
 
       <section className="panel section-gap" id="correspondence">
-        <h3>Correspondence</h3>
+        <h3>Переписка</h3>
         {emails.length === 0 ? (
-          <p className="muted">No email messages are linked to this application.</p>
+          <p className="muted">С заявкой не связано ни одного письма.</p>
         ) : (
           <ul className="timeline">
             {emails.map((message) => (
               <li key={message.id}>
-                <strong>{message.subject ?? "(no subject)"}</strong>
+                <strong>{message.subject ?? "(без темы)"}</strong>
                 <span>
                   {message.sender} · {new Date(message.occurred_at).toLocaleString()}
                 </span>
                 <span>
                   To:{" "}
                   {message.recipients.map((recipient) => recipient.address).join(", ") ||
-                    "not recorded"}
+                    "не записано"}
                 </span>
                 <div className="email-body">
-                  {message.plain_body ?? "No plain-text body was supplied."}
+                  {message.plain_body ?? "Текстовая версия письма отсутствует."}
                 </div>
                 <span>
                   Processing: {message.processing_status}
@@ -377,7 +392,7 @@ export default async function ApplicationDetailPage({
                         <a href={`/api/attachments/${attachment.id}`}>
                           {attachment.original_filename}
                         </a>{" "}
-                        ({attachment.mime_type}, {attachment.size_bytes} bytes,{" "}
+                        ({attachment.mime_type}, {attachment.size_bytes} байт,{" "}
                         {attachment.parse_status})
                       </li>
                     ))}
@@ -389,39 +404,39 @@ export default async function ApplicationDetailPage({
         )}
       </section>
 
-      <section className="panel section-gap">
+      {false ? <section className="panel section-gap">
         <div className="page-heading">
           <div>
-            <h3>Extracted data</h3>
+            <h3>Извлечённые данные</h3>
             <p className="muted">
-              Phase 4 structured values. Missing and conflicting values remain
-              review-required until a specialist corrects them.
+              Структурированные значения. Отсутствующие и конфликтующие данные
+              требуют проверки специалистом.
             </p>
           </div>
           <div className="inline-actions">
             <form action={runExtractionAction}>
-              <input type="hidden" name="application_id" value={application.id} />
+              <input type="hidden" name="application_id" value={application!.id} />
               <input type="hidden" name="force" value="0" />
-              <button type="submit">Extract data</button>
+              <button type="submit">Извлечь данные</button>
             </form>
             {extractionData.isAdmin && extractionData.runs.length > 0 ? (
               <form action={runExtractionAction}>
-                <input type="hidden" name="application_id" value={application.id} />
+                <input type="hidden" name="application_id" value={application!.id} />
                 <input type="hidden" name="force" value="1" />
-                <button type="submit">Repeat extraction</button>
+                <button type="submit">Повторить извлечение</button>
               </form>
             ) : null}
             {extractionData.isAdmin ? (
               <form action={runPendingExtractionsAction}>
-                <input type="hidden" name="application_id" value={application.id} />
-                <button type="submit">Extract all pending</button>
+                <input type="hidden" name="application_id" value={application!.id} />
+                <button type="submit">Извлечь данные из всех ожидающих</button>
               </form>
             ) : null}
           </div>
         </div>
 
         {extractionData.fields.length === 0 ? (
-          <p className="muted">No extraction has completed for this application.</p>
+          <p className="muted">Извлечение данных для этой заявки ещё не завершалось.</p>
         ) : (
           <div className="stack">
             {extractionData.fields.map((field) => {
@@ -448,16 +463,16 @@ export default async function ApplicationDetailPage({
                     </div>
                     {sourceAttachment ? (
                       <a href={`/api/attachments/${sourceAttachment}`}>
-                        Open source document
+                        Открыть исходный документ
                       </a>
                     ) : null}
                   </div>
                   <p>
-                    <strong>Value:</strong> {value || "(null)"}
+                    <strong>Значение:</strong> {value || "(пусто)"}
                   </p>
                   <p className="muted">
-                    Source: {field.source_type ?? "none"} ·{" "}
-                    {field.source_marker ?? "no marker"} · last changed{" "}
+                    Источник: {field.source_type ?? "нет"} ·{" "}
+                    {field.source_marker ?? "без отметки"} · изменено{" "}
                     {new Date(field.updated_at).toLocaleString()}
                   </p>
                   {field.source_excerpt ? (
@@ -470,7 +485,7 @@ export default async function ApplicationDetailPage({
                       <input
                         type="hidden"
                         name="application_id"
-                        value={application.id}
+                        value={application!.id}
                       />
                       <input type="hidden" name="field_name" value={field.field_name} />
                       <input type="hidden" name="action" value="corrected" />
@@ -482,13 +497,13 @@ export default async function ApplicationDetailPage({
                         Correction reason
                         <input name="reason" required minLength={2} maxLength={1000} />
                       </label>
-                      <button type="submit">Save correction</button>
+                      <button type="submit">Сохранить исправление</button>
                     </form>
                     <form action={correctExtractedFieldAction} className="stack">
                       <input
                         type="hidden"
                         name="application_id"
-                        value={application.id}
+                        value={application!.id}
                       />
                       <input type="hidden" name="field_name" value={field.field_name} />
                       <input type="hidden" name="value" value="" />
@@ -497,7 +512,7 @@ export default async function ApplicationDetailPage({
                         Reason for null
                         <input name="reason" required minLength={2} maxLength={1000} />
                       </label>
-                      <button type="submit">Set null</button>
+                      <button type="submit">Отметить пустым</button>
                     </form>
                   </div>
                 </article>
@@ -508,7 +523,7 @@ export default async function ApplicationDetailPage({
 
         {extractionData.conflicts.length > 0 ? (
           <div className="section-gap">
-            <h4>Conflicts</h4>
+            <h4>Конфликты</h4>
             {extractionData.conflicts.map((conflict) => (
               <article className="document-card" key={conflict.id}>
                 <strong>{conflict.field_name}</strong>
@@ -520,7 +535,7 @@ export default async function ApplicationDetailPage({
                         <input
                           type="hidden"
                           name="application_id"
-                          value={application.id}
+                            value={application!.id}
                         />
                         <input
                           type="hidden"
@@ -562,7 +577,7 @@ export default async function ApplicationDetailPage({
                           <input name="reason" required minLength={2} maxLength={1000} />
                         </label>
                         <button type="submit">
-                          Select {String(candidate.normalizedValue ?? "(null)")}
+                          Выбрать {String(candidate.normalizedValue ?? "(пусто)")}
                         </button>
                       </form>
                     ),
@@ -575,7 +590,7 @@ export default async function ApplicationDetailPage({
 
         {extractionData.runs.length > 0 ? (
           <details className="section-gap">
-            <summary>Extraction runs and usage</summary>
+            <summary>Запуски извлечения и использование</summary>
             <ul className="timeline">
               {extractionData.runs.map((run) => (
                 <li key={run.id}>
@@ -600,25 +615,25 @@ export default async function ApplicationDetailPage({
             </ul>
           </details>
         ) : null}
-      </section>
+      </section> : null}
 
       <section className="panel section-gap">
         <div className="page-heading">
           <div>
-            <h3>Documents</h3>
+            <h3>Документы</h3>
             <p className="muted">
-              Private source files and normalized Phase 3 parsing results.
+              Закрытые исходные файлы и нормализованные результаты разбора.
             </p>
           </div>
           {documentData.isAdmin && documentData.documents.length > 0 ? (
             <form action={parsePendingDocumentsAction}>
               <input type="hidden" name="application_id" value={application.id} />
-              <button type="submit">Parse all pending</button>
+              <button type="submit">Разобрать все ожидающие файлы</button>
             </form>
           ) : null}
         </div>
         {documentData.documents.length === 0 ? (
-          <p className="muted">No attachments are linked to this application.</p>
+          <p className="muted">С заявкой не связано ни одного вложения.</p>
         ) : (
           <div className="stack">
             {documentData.documents.map((document) => {
@@ -640,41 +655,41 @@ export default async function ApplicationDetailPage({
                     <div>
                       <strong>{document.original_filename}</strong>
                       <div className="muted">
-                        {document.mime_type} · {document.size_bytes} bytes · checksum{" "}
+                        {document.mime_type} · {document.size_bytes} байт · контрольная сумма{" "}
                         {document.checksum.slice(0, 12)}
                       </div>
                     </div>
-                    <a href={`/api/attachments/${document.id}`}>Download original</a>
+                    <a href={`/api/attachments/${document.id}`}>Скачать оригинал</a>
                   </div>
                   <dl className="summary-grid">
                     <div>
-                      <dt>Status</dt>
+                      <dt>Статус</dt>
                       <dd>{document.parse_status}</dd>
                     </div>
                     <div>
-                      <dt>Parser</dt>
+                      <dt>Обработчик</dt>
                       <dd>
                         {parsed
                           ? `${parsed.parser_type} (${parsed.parser_version})`
-                          : "not run"}
+                          : "не запускался"}
                       </dd>
                     </div>
                     <div>
-                      <dt>Text length</dt>
+                      <dt>Длина текста</dt>
                       <dd>{parsed?.text_length ?? 0}</dd>
                     </div>
                     <div>
-                      <dt>Completed</dt>
+                      <dt>Завершено</dt>
                       <dd>
                         {document.parse_completed_at
                           ? new Date(document.parse_completed_at).toLocaleString()
-                          : "not completed"}
+                          : "не завершён"}
                       </dd>
                     </div>
                   </dl>
                   {parsed && Object.keys(parsed.source_metadata).length > 0 ? (
                     <details>
-                      <summary>Source metadata</summary>
+                      <summary>Сведения об источнике</summary>
                       <pre className="email-body">
                         {JSON.stringify(parsed.source_metadata, null, 2)}
                       </pre>
@@ -682,7 +697,7 @@ export default async function ApplicationDetailPage({
                   ) : null}
                   {parsed?.warnings.length ? (
                     <div className="alert">
-                      <strong>Warnings</strong>
+                      <strong>Предупреждения</strong>
                       <ul>
                         {parsed.warnings.map((warning) => (
                           <li key={warning}>{warning}</li>
@@ -698,7 +713,7 @@ export default async function ApplicationDetailPage({
                   ) : null}
                   {visibleText ? (
                     <details>
-                      <summary>View normalized text</summary>
+                      <summary>Показать нормализованный текст</summary>
                       <pre className="document-text">{visibleText}</pre>
                     </details>
                   ) : null}
@@ -715,7 +730,7 @@ export default async function ApplicationDetailPage({
                         value={document.id}
                       />
                       <button type="submit">
-                        {document.parse_status === "pending" ? "Parse" : "Retry parse"}
+                        {document.parse_status === "pending" ? "Разобрать" : "Повторить разбор"}
                       </button>
                     </form>
                   ) : null}
@@ -728,9 +743,9 @@ export default async function ApplicationDetailPage({
 
       <div className="two-column section-gap">
         <section className="panel">
-          <h3>Status history</h3>
+          <h3>История статусов</h3>
           {activity.history.length === 0 ? (
-            <p className="muted">No status history.</p>
+            <p className="muted">История статусов пуста.</p>
           ) : (
             <ul className="timeline">
               {activity.history.map((item) => (
@@ -748,9 +763,9 @@ export default async function ApplicationDetailPage({
         </section>
 
         <section className="panel">
-          <h3>Audit log</h3>
+          <h3>Журнал аудита</h3>
           {activity.audit.length === 0 ? (
-            <p className="muted">No audit events.</p>
+            <p className="muted">События аудита отсутствуют.</p>
           ) : (
             <ul className="timeline">
               {activity.audit.map((item) => (

@@ -56,8 +56,8 @@ describe("ContractDeliveryPanel", () => {
       }],
     }));
 
-    expect(html).toContain("Delivery draft v1");
-    expect(html).toContain("active operator");
+    expect(html).toContain("Черновик отправки v1");
+    expect(html).toContain("сотрудник");
   });
 
   it("localizes a schema error to the delivery block", () => {

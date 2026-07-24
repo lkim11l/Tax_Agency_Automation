@@ -31,6 +31,33 @@ describe("extraction processing", () => {
     expect(result.organization.inn.value).toBe("7707083893");
   });
 
+  it("does not treat equivalent amount representations as a conflict", () => {
+    const result = mergeExtractions([
+      syntheticExtraction({
+        contract: {
+          contract_amount: syntheticValue({
+            value: "120000",
+            normalizedValue: "120000",
+            sourceId,
+            sourceExcerpt: "Стоимость услуг: 120000 рублей.",
+          }),
+        },
+      }),
+      syntheticExtraction({
+        contract: {
+          contract_amount: syntheticValue({
+            value: 120000,
+            normalizedValue: 120000,
+            sourceId,
+            sourceExcerpt: "Стоимость услуг: 120 000 руб.",
+          }),
+        },
+      }),
+    ], []);
+    expect(result.conflicts.some((item) => item.fieldName === "contract_amount"))
+      .toBe(false);
+  });
+
   it("detects conflicting values without silently resolving them", () => {
     const result = mergeExtractions(
       [

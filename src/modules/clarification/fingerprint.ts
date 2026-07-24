@@ -7,6 +7,7 @@ export type FingerprintField = {
   requiresReview: boolean;
   conflictDetected: boolean;
   manuallyCorrected: boolean;
+  accepted?: boolean;
 };
 
 export function computeExtractionFingerprint(fields: FingerprintField[]) {

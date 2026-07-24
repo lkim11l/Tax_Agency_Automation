@@ -85,9 +85,9 @@ export function ContractDeliveryPanel({
         const review = reviews.find((item) => item.contract_version_id === version.id);
         return (
           <article className="document-card" key={`review-${version.id}`}>
-            <strong>Human review · version {version.version_number}</strong>
+            <strong>Проверка договора · версия {version.version_number}</strong>
             <p className="muted">
-              Decision is bound to checksum {version.checksum.slice(0, 16)}…
+              Решение относится к файлу с контрольной суммой {version.checksum.slice(0, 16)}…
             </p>
             {review ? (
               <>
@@ -96,44 +96,44 @@ export function ContractDeliveryPanel({
                   {review.comment ? ` · ${review.comment}` : ""}
                 </p>
                 <p className="muted">
-                  Reviewer: {review.reviewer?.[0]?.full_name ?? review.reviewer?.[0]?.email ?? "active operator"}
-                  {" · "}approved checksum {review.reviewed_checksum.slice(0, 16)}…
+                  Проверил: {review.reviewer?.[0]?.full_name ?? review.reviewer?.[0]?.email ?? "сотрудник"}
+                  {" · "}контрольная сумма {review.reviewed_checksum.slice(0, 16)}…
                 </p>
               </>
             ) : version.status === "awaiting_review" ? (
               <>
                 <p className="alert">
-                  Download and inspect this exact DOCX before recording a decision.
+                  Скачайте и проверьте именно этот DOCX перед принятием решения.
                 </p>
-                <a href={`/api/contracts/versions/${version.id}`}>Download exact review version</a>
+                <a href={`/api/contracts/versions/${version.id}`}>Скачать версию для проверки</a>
                 <form action={reviewContractVersionAction} className="stack section-gap">
                   <input type="hidden" name="application_id" value={applicationId} />
                   <input type="hidden" name="contract_version_id" value={version.id} />
                   <label className="field">
-                    Review comment (required for reject/return)
+                    Комментарий (обязателен при отклонении или возврате)
                     <textarea name="comment" rows={3} maxLength={4000} />
                   </label>
                   <div className="inline-actions">
-                    <button name="decision" value="approved">Approve exact version</button>
-                    <button name="decision" value="rejected">Reject</button>
+                    <button name="decision" value="approved">Одобрить эту версию</button>
+                    <button name="decision" value="rejected">Отклонить</button>
                     <button name="decision" value="returned_for_regeneration">
-                      Return for regeneration
+                      Вернуть на доработку
                     </button>
                   </div>
                 </form>
               </>
             ) : (
-              <p className="muted">This version is not awaiting a review decision.</p>
+              <p className="muted">Эта версия сейчас не ожидает решения.</p>
             )}
             {review?.decision === "approved" && version.status === "approved" ? (
               <form action={createDeliveryDraftAction} className="stack section-gap">
                 <input type="hidden" name="application_id" value={applicationId} />
                 <input type="hidden" name="contract_version_id" value={version.id} />
                 <label className="field">
-                  Confirmed client email (leave blank to use latest inbound sender)
+                  Email клиента (оставьте пустым для адреса из последнего письма)
                   <input name="recipient" type="email" maxLength={320} />
                 </label>
-                <button>Create versioned delivery draft</button>
+                <button>Создать черновик отправки</button>
               </form>
             ) : null}
           </article>
@@ -154,24 +154,24 @@ export function ContractDeliveryPanel({
         return (
           <article className="document-card" key={draft.id}>
             <div className="page-heading">
-              <strong>Delivery draft v{draft.draft_version}</strong>
+              <strong>Черновик отправки v{draft.draft_version}</strong>
               <span>{draft.status}</span>
             </div>
             <p className="muted">
-              Exact attachment: {draft.attachment_filename} · {draft.version_checksum.slice(0, 16)}…
+              Вложение: {draft.attachment_filename} · {draft.version_checksum.slice(0, 16)}…
             </p>
             {editable ? (
               <form action={updateDeliveryDraftAction} className="stack">
                 <input type="hidden" name="application_id" value={applicationId} />
                 <input type="hidden" name="draft_id" value={draft.id} />
-                <label className="field">Recipient<input name="recipient" type="email" required defaultValue={draft.recipient} /></label>
-                <label className="field">Subject<input name="subject" required maxLength={500} defaultValue={draft.subject} /></label>
-                <label className="field">Body<textarea name="body_text" required rows={10} maxLength={50_000} defaultValue={draft.body_text} /></label>
-                <button>Save as new draft version</button>
+                <label className="field">Получатель<input name="recipient" type="email" required defaultValue={draft.recipient} /></label>
+                <label className="field">Тема<input name="subject" required maxLength={500} defaultValue={draft.subject} /></label>
+                <label className="field">Текст письма<textarea name="body_text" required rows={10} maxLength={50_000} defaultValue={draft.body_text} /></label>
+                <button>Сохранить новую версию черновика</button>
               </form>
             ) : (
               <>
-                <p><strong>To:</strong> {draft.recipient}</p>
+                <p><strong>Кому:</strong> {draft.recipient}</p>
                 <p><strong>{draft.subject}</strong></p>
                 <pre className="email-body">{draft.body_text}</pre>
               </>
@@ -181,18 +181,18 @@ export function ContractDeliveryPanel({
                 <form action={sendDeliveryDraftAction}>
                   <input type="hidden" name="application_id" value={applicationId} />
                   <input type="hidden" name="draft_id" value={draft.id} />
-                  <button>{draft.status === "send_failed" ? "Retry known safe failure" : "Send exact DOCX via Mail.ru"}</button>
+                  <button>{draft.status === "send_failed" ? "Повторить безопасную попытку" : "Отправить точный DOCX через Mail.ru"}</button>
                 </form>
                 <form action={cancelDeliveryDraftAction}>
                   <input type="hidden" name="application_id" value={applicationId} />
                   <input type="hidden" name="draft_id" value={draft.id} />
-                  <button>Cancel draft</button>
+                  <button>Отменить черновик</button>
                 </form>
               </div>
             ) : null}
             {draftAttempts.map((attempt) => (
               <p className={attempt.status === "delivery_unknown" ? "alert alert-error" : "muted"} key={attempt.id}>
-                SMTP attempt: {attempt.status}
+                Попытка отправки: {attempt.status}
                 {attempt.safe_error_code ? ` · ${attempt.safe_error_code}` : ""}
                 {attempt.safe_error_message ? ` · ${attempt.safe_error_message}` : ""}
                 {attempt.provider_message_id ? ` · ${attempt.provider_message_id}` : ""}

@@ -19,6 +19,10 @@ import {
   editDraftState,
 } from "./workflow";
 import { computeExtractionFingerprint } from "./fingerprint";
+import {
+  fieldValueFingerprint,
+  type AcceptanceField,
+} from "@/modules/extraction/acceptance";
 
 export type WorkflowExecution = {
   actorId: string;
@@ -66,7 +70,7 @@ export async function recalculateCompleteness(input: {
     ? { profile: { id: input.initiatedBy }, admin: input.admin }
     : await actor();
   const { profile, admin } = context;
-  const [applicationResult, fieldsResult] = await Promise.all([
+  const [applicationResult, fieldsResult, acceptancesResult] = await Promise.all([
     admin
       .from("applications")
       .select("id,application_number")
@@ -75,16 +79,26 @@ export async function recalculateCompleteness(input: {
     admin
       .from("extracted_fields")
       .select(
-        "field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected,manually_corrected",
+        "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected,manually_corrected",
       )
       .eq("application_id", input.applicationId),
+    admin
+      .from("extracted_field_acceptances")
+      .select("extracted_field_id,value_fingerprint")
+      .eq("application_id", input.applicationId),
   ]);
-  if (applicationResult.error || fieldsResult.error) {
+  if (applicationResult.error || fieldsResult.error || acceptancesResult.error) {
     throw new Error("Unable to load completeness inputs.");
   }
+  const accepted = new Set(
+    (acceptancesResult.data ?? []).map((item) =>
+      `${item.extracted_field_id}:${item.value_fingerprint}`),
+  );
   const ruleSet = getRuleSet(input.ruleSetId);
   const fields: CompletenessFieldInput[] = (fieldsResult.data ?? []).map(
-    (field) => ({
+    (field) => {
+      const valueFingerprint = fieldValueFingerprint(field as AcceptanceField);
+      return {
       fieldName: field.field_name,
       value:
         (field.structured_value as Record<string, unknown> | null)?.normalizedValue ??
@@ -97,7 +111,9 @@ export async function recalculateCompleteness(input: {
       requiresReview: field.requires_review,
       conflictDetected: field.conflict_detected,
       manuallyCorrected: field.manually_corrected,
-    }),
+      accepted: accepted.has(`${field.id}:${valueFingerprint}`),
+    };
+    },
   );
   const evaluation = evaluateCompleteness(ruleSet, fields);
   const extractionFingerprint = computeExtractionFingerprint(
@@ -108,8 +124,26 @@ export async function recalculateCompleteness(input: {
       requiresReview: field.requiresReview,
       conflictDetected: field.conflictDetected,
       manuallyCorrected: field.manuallyCorrected,
+      accepted: field.accepted,
     })),
   );
+  const existing = await admin
+    .from("completeness_runs")
+    .select("id")
+    .eq("application_id", input.applicationId)
+    .eq("rule_set_id", ruleSet.id)
+    .eq("rule_set_version", ruleSet.version)
+    .eq("extraction_fingerprint", extractionFingerprint)
+    .maybeSingle();
+  if (existing.error) throw new Error("Unable to check completeness cache.");
+  if (existing.data) {
+    return {
+      runId: existing.data.id as string,
+      applicationNumber: applicationResult.data.application_number as string,
+      cacheHit: true,
+      ...evaluation,
+    };
+  }
   const run = await admin
     .from("completeness_runs")
     .insert({
@@ -166,6 +200,7 @@ export async function recalculateCompleteness(input: {
   return {
     runId: run.data.id as string,
     applicationNumber: applicationResult.data.application_number as string,
+    cacheHit: false,
     ...evaluation,
   };
 }

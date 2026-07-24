@@ -11,6 +11,7 @@ export type CompletenessFieldInput = {
   requiresReview: boolean;
   conflictDetected: boolean;
   manuallyCorrected: boolean;
+  accepted?: boolean;
 };
 
 export type FieldResultStatus =
@@ -87,6 +88,9 @@ export function evaluateCompleteness(
     ) {
       status = "invalid";
       reason = "SOURCE_ATTRIBUTION_REQUIRED";
+    } else if (field.accepted) {
+      status = "complete";
+      reason = null;
     } else if (
       !field.manuallyCorrected &&
       (field.confidence ?? 0) < rule.minimumConfidence

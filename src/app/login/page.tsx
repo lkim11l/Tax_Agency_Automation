@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { getLocale, messages } from "@/lib/i18n";
-import { setLocaleAction } from "@/lib/i18n-actions";
 
 import { signIn } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Sign in",
+  title: "Вход",
 };
 
 type LoginPageProps = {
@@ -29,12 +28,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <section className="auth-card">
         <h1>{text.appName}</h1>
         <p className="muted">{text.login.hint}</p>
-        <form action={setLocaleAction} className="locale-switcher locale-switcher-auth">
-          <input type="hidden" name="return_to" value="/login" />
-          <button name="locale" value="ru" type="submit" disabled={locale === "ru"}>RU</button>
-          <button name="locale" value="en" type="submit" disabled={locale === "en"}>EN</button>
-        </form>
-
         {!isConfigured || params.reason === "configuration" ? (
           <p className="error-message" role="alert">
             {text.login.config}

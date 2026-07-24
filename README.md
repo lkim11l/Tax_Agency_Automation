@@ -365,6 +365,15 @@ acceptance checklist.
 
 See `docs/CURRENT_SPRINT.md`.
 
+The production operator interface is Russian-only. Legacy language cookies are
+ignored, and technical status/reason codes are translated before display.
+
+On an application page, «Обработать заявку» runs pending parsing, cached
+extraction, deterministic validation, immutable safe-field acceptance and
+completeness recalculation. It never approves or sends a clarification or
+contract. «Подтвердить все корректные данные» records acceptance events rather
+than fake manual corrections.
+
 ## Contract review and delivery
 
 Phase 7 adds human approve/reject/return controls and versioned delivery drafts

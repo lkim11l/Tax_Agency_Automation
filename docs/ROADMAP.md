@@ -330,6 +330,16 @@ The full real-mailbox workflow completes successfully, critical errors are visib
 
 # Post-MVP backlog
 
+## Authorized post-MVP sprint — Autonomous application processing
+
+Acceptance requires a database-claimed one-click pipeline, source-backed
+deterministic acceptance, canonical conflict comparison, compact Russian review,
+conditional clarification and unchanged human approval/delivery gates.
+
+Implementation and hosted data acceptance passed for `REQ-2026-000273` on
+2026-07-24. Vercel verification of the committed UI remains the final deployment
+step.
+
 Do not implement these until the MVP acceptance gate passes:
 
 - automatic sending for low-risk standard cases;

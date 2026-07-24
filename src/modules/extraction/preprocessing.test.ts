@@ -45,9 +45,29 @@ describe("deterministic preprocessing", () => {
     expect(normalizeDate("23.07.2026")).toBe("2026-07-23");
     expect(normalizeDate("31.02.2026")).toBeNull();
     expect(normalizeAmount("12 500,50")).toBe("12500.50");
+    expect(normalizeAmount("120000 рублей")).toBe("120000");
     expect(normalizeAmount("-1")).toBeNull();
     expect(normalizeCurrency("руб.")).toBe("RUB");
     expect(normalizeCurrency("GBP")).toBeNull();
+  });
+
+  it("uses explicit labels and ignores unrelated numbers as contract amounts", () => {
+    const labeled = {
+      ...source,
+      text: [
+        "[EMAIL BODY]",
+        "Заявка 001.",
+        "Срок: с 1 августа по 31 августа.",
+        "Аванс: 100%.",
+        "Стоимость услуг: 120000 рублей.",
+        "Валюта: RUB.",
+        "Телефон: +7 999 000-00-01.",
+      ].join("\n"),
+    };
+    const amounts = findDeterministicCandidates([labeled])
+      .filter((candidate) => candidate.fieldName === "contract_amount")
+      .map((candidate) => candidate.normalizedValue);
+    expect(amounts).toEqual(["120000"]);
   });
 
   it("finds candidates with source markers and validator results", () => {

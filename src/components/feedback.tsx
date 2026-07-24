@@ -14,7 +14,7 @@ export function Feedback({
       ) : null}
       {success ? (
         <p className="alert alert-success" role="status">
-          Changes saved successfully.
+          Изменения успешно сохранены.
         </p>
       ) : null}
     </>

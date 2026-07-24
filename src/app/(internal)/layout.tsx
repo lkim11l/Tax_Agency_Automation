@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { requireOperationalContextOrRedirect } from "@/lib/auth/context";
-import { setLocaleAction } from "@/lib/i18n-actions";
 import { getLocale, messages } from "@/lib/i18n";
 
 import { signOut } from "./actions";
@@ -31,7 +30,7 @@ export default async function InternalLayout({
     <div className="shell">
       <aside className="sidebar">
         <h1>{text.appName}</h1>
-        <nav aria-label="Internal navigation">
+        <nav aria-label="Основная навигация">
           {navigation.map((item) => (
             <Link href={item.href} key={item.href}>
               {item.label}
@@ -41,11 +40,6 @@ export default async function InternalLayout({
         <form action={signOut}>
           <p className="sidebar-user">{profile.full_name ?? profile.email}</p>
           <button type="submit">{text.nav.signOut}</button>
-        </form>
-        <form action={setLocaleAction} className="locale-switcher">
-          <input type="hidden" name="return_to" value="/dashboard" />
-          <button name="locale" value="ru" type="submit" disabled={locale === "ru"}>RU</button>
-          <button name="locale" value="en" type="submit" disabled={locale === "en"}>EN</button>
         </form>
       </aside>
       <main className="content">{children}</main>

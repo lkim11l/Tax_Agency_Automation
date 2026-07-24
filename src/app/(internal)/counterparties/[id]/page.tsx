@@ -30,7 +30,7 @@ export default async function CounterpartyDetailPage({
     <>
       <div className="page-heading">
         <h2>{counterparty.legal_name}</h2>
-        <Link href="/counterparties">Back to counterparties</Link>
+        <Link href="/counterparties">Назад к контрагентам</Link>
       </div>
       <Feedback error={feedback.error} success={feedback.success} />
       <section className="panel">

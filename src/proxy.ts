@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
 
     if (!error && !data) {
-      return new NextResponse("Application not found", {
+      return new NextResponse("Заявка не найдена", {
         status: 404,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       });

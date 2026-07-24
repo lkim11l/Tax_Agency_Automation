@@ -50,7 +50,7 @@ const patterns: Array<{
   {
     kind: "amount",
     fieldName: "contract_amount",
-    pattern: /(?<!\d)\d{1,3}(?:[ \u00a0]\d{3})*(?:[.,]\d{1,2})?(?!\d)/gu,
+    pattern: /(?<!\d)\d+(?:[ \u00a0]\d{3})*(?:[.,]\d{1,2})?(?!\d)/gu,
   },
   {
     kind: "currency",
@@ -138,7 +138,15 @@ export function normalizeDate(value: string): string | null {
 }
 
 export function normalizeAmount(value: string): string | null {
-  const normalized = value.replace(/[\s\u00a0]/gu, "").replace(",", ".");
+  const normalized = value
+    .trim()
+    .replace(
+      /(?:RUB|РУБ(?:\.|ЛЕЙ|ЛЯ|ЛЬ)?|РОССИЙСКИХ?\s+РУБЛ(?:ЕЙ|Я|Ь)?|₽)/giu,
+      "",
+    )
+    .replace(/[.;:]+$/u, "")
+    .replace(/[\s\u00a0]/gu, "")
+    .replace(",", ".");
   if (!/^\d+(?:\.\d{1,2})?$/u.test(normalized)) {
     return null;
   }
@@ -147,6 +155,34 @@ export function normalizeAmount(value: string): string | null {
     return null;
   }
   return normalized;
+}
+
+function nearbyLabel(text: string, offset: number) {
+  const lineStart = Math.max(
+    text.lastIndexOf("\n", offset - 1),
+    text.lastIndexOf("\r", offset - 1),
+  ) + 1;
+  return text.slice(lineStart, offset).slice(-100);
+}
+
+function labeledField(
+  kind: DeterministicCandidate["kind"],
+  text: string,
+  offset: number,
+) {
+  const label = nearbyLabel(text, offset);
+  switch (kind) {
+    case "kpp":
+      return /(?:КПП|KPP)\s*[:№-]?\s*$/iu.test(label);
+    case "bik":
+      return /(?:БИК|BIK)\s*[:№-]?\s*$/iu.test(label);
+    case "bank_account":
+      return /(?:РАСЧ[ЕЁ]ТН(?:ЫЙ|ОГО)\s+СЧ[ЕЁ]Т|Р\/С|КОРР(?:\.|ЕСПОНДЕНТСКИЙ)\s+СЧ[ЕЁ]Т|К\/С|BANK\s+ACCOUNT)\s*[:№-]?\s*$/iu.test(label);
+    case "amount":
+      return /(?:СТОИМОСТЬ(?:\s+УСЛУГ)?|СУММА(?:\s+ДОГОВОРА)?|ЦЕНА|CONTRACT_AMOUNT|AMOUNT)\s*[:№-]?\s*$/iu.test(label);
+    default:
+      return true;
+  }
 }
 
 export function normalizeCurrency(value: string): string | null {
@@ -217,11 +253,14 @@ export function findDeterministicCandidates(sources: ExtractionSource[]) {
     for (const definition of patterns) {
       for (const match of source.text.matchAll(definition.pattern)) {
         if (match.index === undefined) continue;
+        if (!labeledField(definition.kind, source.text, match.index)) continue;
         const checked = validateAndNormalize(definition.kind, match[0]);
         let fieldName = definition.fieldName;
         if (definition.kind === "bank_account") {
-          const excerpt = excerptAt(source.text, match.index, match[0].length);
-          if (/корр(?:\.|еспондент)/iu.test(excerpt)) fieldName = "correspondent_account";
+          const label = nearbyLabel(source.text, match.index);
+          if (/(?:КОРР(?:\.|ЕСПОНДЕНТСКИЙ)\s+СЧ[ЕЁ]Т|К\/С)\s*[:№-]?\s*$/iu.test(label)) {
+            fieldName = "correspondent_account";
+          }
         }
         const key = `${source.sourceId}:${definition.kind}:${checked.normalized}:${match.index}`;
         if (seen.has(key)) continue;

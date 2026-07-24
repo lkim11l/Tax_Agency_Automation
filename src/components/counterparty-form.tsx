@@ -5,23 +5,23 @@ const fields: Array<{
   label: string;
   type?: string;
 }> = [
-  { name: "legal_name", label: "Legal name" },
-  { name: "short_name", label: "Short name" },
-  { name: "inn", label: "INN" },
-  { name: "kpp", label: "KPP" },
-  { name: "ogrn", label: "OGRN" },
-  { name: "legal_address", label: "Legal address" },
-  { name: "actual_address", label: "Actual address" },
-  { name: "bank_name", label: "Bank name" },
-  { name: "bank_account", label: "Bank account" },
-  { name: "correspondent_account", label: "Correspondent account" },
-  { name: "bik", label: "BIK" },
-  { name: "signer_name", label: "Signer name" },
-  { name: "signer_position", label: "Signer position" },
-  { name: "signer_authority", label: "Signer authority" },
-  { name: "contact_name", label: "Contact name" },
-  { name: "contact_email", label: "Contact email", type: "email" },
-  { name: "contact_phone", label: "Contact phone", type: "tel" },
+  { name: "legal_name", label: "Полное наименование" },
+  { name: "short_name", label: "Краткое наименование" },
+  { name: "inn", label: "ИНН" },
+  { name: "kpp", label: "КПП" },
+  { name: "ogrn", label: "ОГРН" },
+  { name: "legal_address", label: "Юридический адрес" },
+  { name: "actual_address", label: "Фактический адрес" },
+  { name: "bank_name", label: "Банк" },
+  { name: "bank_account", label: "Расчётный счёт" },
+  { name: "correspondent_account", label: "Корреспондентский счёт" },
+  { name: "bik", label: "БИК" },
+  { name: "signer_name", label: "ФИО подписанта" },
+  { name: "signer_position", label: "Должность подписанта" },
+  { name: "signer_authority", label: "Основание полномочий" },
+  { name: "contact_name", label: "Контактное лицо" },
+  { name: "contact_email", label: "Контактный email", type: "email" },
+  { name: "contact_phone", label: "Контактный телефон", type: "tel" },
 ];
 
 export function CounterpartyForm({
@@ -49,7 +49,7 @@ export function CounterpartyForm({
       ))}
       <div className="field-wide">
         <button type="submit">
-          {counterparty ? "Save counterparty" : "Create counterparty"}
+          {counterparty ? "Сохранить контрагента" : "Создать контрагента"}
         </button>
       </div>
     </form>

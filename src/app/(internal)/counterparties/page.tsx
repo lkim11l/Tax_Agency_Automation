@@ -7,7 +7,7 @@ import { createCounterpartyAction } from "@/modules/counterparties/actions";
 import { listCounterparties } from "@/modules/counterparties/repository";
 
 export const metadata: Metadata = {
-  title: "Counterparties",
+  title: "Контрагенты",
 };
 
 export default async function CounterpartiesPage({
@@ -22,43 +22,43 @@ export default async function CounterpartiesPage({
     <>
       <div className="page-heading">
         <div>
-          <h2>Counterparties</h2>
-          <p className="muted">Minimal directory for application assignment.</p>
+          <h2>Контрагенты</h2>
+          <p className="muted">Справочник контрагентов для привязки к заявкам.</p>
         </div>
       </div>
       <Feedback error={params.error} />
 
       <section className="panel section-gap">
-        <h3>Search</h3>
+        <h3>Поиск</h3>
         <form className="inline-form">
           <input
             name="q"
-            placeholder="Legal name or INN"
+            placeholder="Юридическое наименование или ИНН"
             defaultValue={params.q}
           />
-          <button type="submit">Search</button>
-          <Link href="/counterparties">Clear</Link>
+          <button type="submit">Найти</button>
+          <Link href="/counterparties">Очистить</Link>
         </form>
       </section>
 
       <section className="panel section-gap">
-        <h3>Create counterparty</h3>
+        <h3>Создать контрагента</h3>
         <CounterpartyForm action={createCounterpartyAction} />
       </section>
 
       <section className="section-gap">
         {counterparties.length === 0 ? (
-          <div className="panel empty-state">No counterparties found.</div>
+          <div className="panel empty-state">Контрагенты не найдены.</div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Legal name</th>
-                  <th>Short name</th>
-                  <th>INN</th>
-                  <th>Contact</th>
-                  <th>Updated</th>
+                  <th>Юридическое наименование</th>
+                  <th>Краткое наименование</th>
+                  <th>ИНН</th>
+                  <th>Контакт</th>
+                  <th>Обновлено</th>
                 </tr>
               </thead>
               <tbody>
@@ -72,7 +72,7 @@ export default async function CounterpartiesPage({
                     <td>{item.short_name ?? "—"}</td>
                     <td>{item.inn ?? "—"}</td>
                     <td>{item.contact_name ?? item.contact_email ?? "—"}</td>
-                    <td>{new Date(item.updated_at).toLocaleString()}</td>
+                    <td>{new Date(item.updated_at).toLocaleString("ru-RU")}</td>
                   </tr>
                 ))}
               </tbody>

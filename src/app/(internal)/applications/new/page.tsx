@@ -10,7 +10,7 @@ import { listTemplateOptions } from "@/modules/templates/repository";
 import { getLocale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Create application",
+  title: "Создать заявку",
 };
 
 export default async function NewApplicationPage({

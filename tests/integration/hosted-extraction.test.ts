@@ -271,6 +271,78 @@ describe.sequential("hosted Supabase Phase 4 extraction acceptance", () => {
     ]);
   });
 
+  it("records safe acceptance transactionally, idempotently, and behind RLS", async () => {
+    const extracted = await service
+      .from("extracted_fields")
+      .select("id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt")
+      .eq("application_id", applicationId)
+      .eq("field_name", "inn")
+      .single();
+    expect(extracted.error).toBeNull();
+    const row = extracted.data!;
+    const valueFingerprint = createHash("sha256")
+      .update([
+        row.field_name,
+        String(row.structured_value?.normalizedValue ?? row.raw_value ?? ""),
+        row.source_type ?? "",
+        row.source_id ?? "",
+        row.source_marker ?? "",
+        row.source_excerpt ?? "",
+      ].join("|"))
+      .digest("hex");
+    const batchFingerprint = createHash("sha256")
+      .update(`integration-acceptance-${applicationId}`)
+      .digest("hex");
+    const args = {
+      p_application_id: applicationId,
+      p_actor_id: adminId,
+      p_method: "bulk",
+      p_validator_version: "safe-field-acceptance-v1",
+      p_batch_fingerprint: batchFingerprint,
+      p_candidates: [{
+        field_id: row.id,
+        value_fingerprint: valueFingerprint,
+        resolve_conflict: false,
+      }],
+    };
+    const first = await service.rpc("record_safe_field_acceptances", args);
+    const repeated = await service.rpc("record_safe_field_acceptances", args);
+    expect(first.error).toBeNull();
+    expect(first.data).toEqual(expect.objectContaining({
+      accepted_count: 1,
+      cache_hit: false,
+    }));
+    expect(repeated.data).toEqual(expect.objectContaining({
+      accepted_count: 1,
+      cache_hit: true,
+    }));
+    expect(
+      (await specialist
+        .from("extracted_field_acceptances")
+        .select("id")
+        .eq("application_id", applicationId)).data,
+    ).toHaveLength(1);
+    expect(
+      (await inactive
+        .from("extracted_field_acceptances")
+        .select("id")
+        .eq("application_id", applicationId)).data,
+    ).toEqual([]);
+    const anonymousAcceptance = await client()
+      .from("extracted_field_acceptances")
+      .select("id")
+      .eq("application_id", applicationId);
+    expect(
+      anonymousAcceptance.error !== null ||
+        anonymousAcceptance.data?.length === 0,
+    ).toBe(true);
+    expect(
+      (await specialist.from("extracted_field_acceptances").insert({
+        application_id: applicationId,
+      })).error,
+    ).not.toBeNull();
+  });
+
   it("blocks direct specialist worker writes and inactive corrections", async () => {
     const direct = await specialist.from("extraction_runs").insert({
       application_id: applicationId,

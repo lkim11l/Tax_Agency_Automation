@@ -377,3 +377,24 @@ Reason:
 Technical validity is not legal customer approval. Stable diagnostics are
 actionable without exposing data. Explicit manifests and database revalidation
 prevent broad production deletion.
+
+## ADR-021 — Immutable safe acceptance and database-owned application runs
+
+Status: Accepted
+
+Decision:
+Store deterministic field acceptance as immutable events keyed by the exact
+field/source/value fingerprint, separately from manual correction history.
+Claim processing through a service-only PostgreSQL function with an advisory
+lock and successful-run fingerprint cache. Canonicalize Russian amount, currency
+and date representations before conflict comparison.
+
+The production interface is Russian-only. Automatic work may parse, extract,
+validate, accept safe fields, recalculate completeness and manage an unsent
+clarification draft. Human approval remains mandatory for every send, contract
+approval and contract delivery.
+
+Reason:
+Confirming an unchanged source-backed value is not a correction. Immutable
+acceptance events preserve audit meaning, database ownership prevents duplicate
+work, and Russian labels avoid mixed-language operator screens.

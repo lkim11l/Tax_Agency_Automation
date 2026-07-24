@@ -72,6 +72,35 @@ describe("completeness engine", () => {
     expect(result.percentage).toBe(100);
   });
 
+  it("treats a deterministic acceptance as complete at low model confidence", () => {
+    const ruleSet = {
+      id: "test",
+      version: "1",
+      label: "test",
+      rules: [{
+        fieldName: "inn",
+        label: "ИНН",
+        question: "ИНН?",
+        minimumConfidence: 0.9,
+        allowManualConfirmation: true,
+        required: true,
+      }],
+    };
+    const result = evaluateCompleteness(ruleSet, [{
+      fieldName: "inn",
+      value: "7707083893",
+      ...source,
+      confidence: 0.4,
+      requiresReview: true,
+      accepted: true,
+    }]);
+    expect(result).toEqual(expect.objectContaining({
+      ready: true,
+      percentage: 100,
+      lowConfidence: 0,
+    }));
+  });
+
   it("applies conditional alternatives only when every required date exists", () => {
     const ruleSet = getRuleSet("standard-contract");
     const partial = evaluateCompleteness(ruleSet, [

@@ -17,6 +17,11 @@ import {
   signerFieldNames,
   contractFieldNames,
 } from "./constants";
+import {
+  fieldValueFingerprint,
+  previewSafeAcceptance,
+  type AcceptanceField,
+} from "./acceptance";
 
 function checksum(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -193,16 +198,18 @@ export type ExtractionFieldRecord = {
   manually_corrected: boolean;
   correction_reason: string | null;
   conflict_detected: boolean;
+  extraction_run_id: string | null;
   updated_at: string;
+  accepted?: boolean;
 };
 
 export async function getApplicationExtraction(applicationId: string) {
   const { supabase, profile } = await getOperationalContext();
-  const [fields, runs, conflicts, corrections, documentSources] = await Promise.all([
+  const [fields, runs, conflicts, corrections, documentSources, acceptances] = await Promise.all([
     supabase
       .from("extracted_fields")
       .select(
-        "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,manually_corrected,correction_reason,conflict_detected,updated_at",
+        "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,manually_corrected,correction_reason,conflict_detected,extraction_run_id,updated_at",
       )
       .eq("application_id", applicationId)
       .order("field_name"),
@@ -216,8 +223,9 @@ export async function getApplicationExtraction(applicationId: string) {
       .limit(20),
     supabase
       .from("extraction_conflicts")
-      .select("id,extraction_run_id,field_name,candidates,sources,conflict_type,created_at")
+      .select("id,extraction_run_id,field_name,candidates,sources,conflict_type,requires_review,resolved_at,created_at")
       .eq("application_id", applicationId)
+      .eq("requires_review", true)
       .order("created_at", { ascending: false }),
     supabase
       .from("extracted_field_corrections")
@@ -230,19 +238,45 @@ export async function getApplicationExtraction(applicationId: string) {
       .from("parsed_documents")
       .select("id,attachment_id")
       .eq("application_id", applicationId),
+    supabase
+      .from("extracted_field_acceptances")
+      .select("extracted_field_id,value_fingerprint,acceptance_method,created_at")
+      .eq("application_id", applicationId),
   ]);
   const error =
     fields.error ??
     runs.error ??
     conflicts.error ??
     corrections.error ??
-    documentSources.error;
+    documentSources.error ??
+    acceptances.error;
   if (error) throw new Error(`Unable to load extracted data: ${error.message}`);
+  const fieldRows = (fields.data ?? []) as unknown as ExtractionFieldRecord[];
+  const accepted = new Set(
+    (acceptances.data ?? []).map((item) =>
+      `${item.extracted_field_id}:${item.value_fingerprint}`),
+  );
+  const decoratedFields = fieldRows.map((field) => ({
+    ...field,
+    accepted: accepted.has(
+      `${field.id}:${fieldValueFingerprint(field as AcceptanceField)}`,
+    ),
+  }));
+  const acceptancePreview = previewSafeAcceptance(
+    decoratedFields as AcceptanceField[],
+    (conflicts.data ?? []) as Array<{
+      field_name: string;
+      candidates: unknown;
+      requires_review: boolean;
+    }>,
+  );
   return {
-    fields: (fields.data ?? []) as unknown as ExtractionFieldRecord[],
+    fields: decoratedFields,
     runs: runs.data ?? [],
     conflicts: conflicts.data ?? [],
     corrections: corrections.data ?? [],
+    acceptances: acceptances.data ?? [],
+    acceptancePreview,
     documentSources: Object.fromEntries(
       (documentSources.data ?? []).map((source) => [source.id, source.attachment_id]),
     ) as Record<string, string>,

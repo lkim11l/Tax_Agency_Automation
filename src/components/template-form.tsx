@@ -11,27 +11,27 @@ export function TemplateForm({
     <form action={action} className="form-grid">
       {template ? <input type="hidden" name="template_id" value={template.id} /> : null}
       <label className="field">
-        Name
+        Название
         <input name="name" required defaultValue={template?.name} />
       </label>
       <label className="field">
-        Version
+        Версия
         <input name="version" required defaultValue={template?.version ?? "0.1"} />
       </label>
       <label className="field field-wide">
-        Description
+        Описание
         <textarea name="description" rows={3} defaultValue={template?.description ?? ""} />
       </label>
       <label className="field">
-        Status
+        Статус
         <select
           name="status"
           defaultValue={
             template?.status === "archived" ? "archived" : "draft"
           }
         >
-          <option value="draft">draft</option>
-          <option value="archived">archived</option>
+          <option value="draft">Черновик</option>
+          <option value="archived">Архивный</option>
         </select>
       </label>
       <label className="field checkbox-field">
@@ -40,21 +40,20 @@ export function TemplateForm({
           name="is_active"
           defaultChecked={template?.is_active ?? false}
         />
-        Active metadata
+        Активен
       </label>
       <label className="field field-wide">
-        Required fields (comma separated)
+        Обязательные поля (через запятую)
         <input
           name="required_fields"
           defaultValue={template?.required_fields.join(", ") ?? ""}
         />
       </label>
       <p className="muted field-wide">
-        DOCX upload and generation are not available in Phase 1. Approved status
-        requires a real storage path and is intentionally not offered here.
+        Утверждённый статус доступен только для реально загруженного DOCX.
       </p>
       <div className="field-wide">
-        <button type="submit">{template ? "Save metadata" : "Create metadata"}</button>
+        <button type="submit">{template ? "Сохранить" : "Создать"}</button>
       </div>
     </form>
   );

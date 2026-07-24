@@ -5,7 +5,8 @@ export type Locale = (typeof supportedLocales)[number];
 export const LOCALE_COOKIE = "taa_locale";
 
 export async function getLocale(): Promise<Locale> {
-  return (await cookies()).get(LOCALE_COOKIE)?.value === "en" ? "en" : "ru";
+  await cookies();
+  return "ru";
 }
 
 const statusRu: Record<string, string> = {

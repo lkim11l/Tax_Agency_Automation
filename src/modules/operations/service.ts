@@ -9,6 +9,7 @@ import { syncMailbox } from "@/modules/email/ingestion";
 import { EXTRACTION_MODEL } from "@/modules/extraction/constants";
 import { runExtraction } from "@/modules/extraction/orchestrator";
 import { resolveExtractionInitiator } from "@/modules/extraction/repository";
+import { recordSafeFieldAcceptances } from "@/modules/extraction/acceptance";
 
 import { loadOperationsConfig } from "./config";
 import {
@@ -116,7 +117,13 @@ async function runAutomaticExtractions(
       errors += 1;
       continue;
     }
-    if (result.status !== "completed") continue;
+    if (!["completed", "cache_hit"].includes(result.status)) continue;
+    await recordSafeFieldAcceptances({
+      applicationId: application.id,
+      actorId: initiatedBy,
+      method: "automatic",
+      admin,
+    });
     const source = await admin.from("applications")
       .select("contract_template_id")
       .eq("id", application.id)

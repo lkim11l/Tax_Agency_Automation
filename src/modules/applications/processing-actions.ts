@@ -1,0 +1,73 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+
+import { getOperationalContext } from "@/lib/auth/context";
+import { createAdminClient } from "@/lib/supabase/admin.server";
+import { recordSafeFieldAcceptances } from "@/modules/extraction/acceptance";
+
+import { processApplication } from "./processing";
+
+function target(applicationId: string, type: "error" | "success", message: string) {
+  return `/applications/${applicationId}?${type}=${encodeURIComponent(message)}`;
+}
+
+function applicationId(formData: FormData) {
+  return z.string().uuid().safeParse(formData.get("application_id"));
+}
+
+export async function processApplicationAction(formData: FormData) {
+  const parsed = applicationId(formData);
+  if (!parsed.success) redirect("/applications?error=Некорректная заявка.");
+  let message: string;
+  try {
+    const context = await getOperationalContext();
+    const result = await processApplication({
+      applicationId: parsed.data,
+      actorId: context.profile.id,
+    });
+    revalidatePath(`/applications/${parsed.data}`);
+    message = result.claimed
+      ? "Обработка завершена. Проверьте итоговую сводку."
+      : result.cacheHit
+        ? "Заявка уже обработана по текущим данным."
+        : "Обработка этой заявки уже выполняется.";
+  } catch (error) {
+    redirect(target(
+      parsed.data,
+      "error",
+      error instanceof Error ? error.message : "Не удалось обработать заявку.",
+    ));
+  }
+  redirect(target(parsed.data, "success", message));
+}
+
+export async function bulkAcceptSafeFieldsAction(formData: FormData) {
+  const parsed = applicationId(formData);
+  if (!parsed.success) redirect("/applications?error=Некорректная заявка.");
+  let accepted = 0;
+  try {
+    const context = await getOperationalContext();
+    const result = await recordSafeFieldAcceptances({
+      applicationId: parsed.data,
+      actorId: context.profile.id,
+      method: "bulk",
+      admin: createAdminClient(),
+    });
+    revalidatePath(`/applications/${parsed.data}`);
+    accepted = result.preview.eligible.length;
+  } catch (error) {
+    redirect(target(
+      parsed.data,
+      "error",
+      error instanceof Error ? error.message : "Не удалось подтвердить поля.",
+    ));
+  }
+  redirect(target(
+    parsed.data,
+    "success",
+    `Подтверждено безопасных полей: ${accepted}.`,
+  ));
+}

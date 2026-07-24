@@ -62,6 +62,28 @@ function comparable(value: ExtractedValue) {
   return String(value.normalizedValue).trim().toLocaleLowerCase("ru-RU");
 }
 
+export function canonicalComparable(
+  fieldName: string,
+  value: Pick<ExtractedValue, "normalizedValue" | "value" | "rawValue">,
+) {
+  const raw = String(value.normalizedValue ?? value.value ?? value.rawValue ?? "").trim();
+  if (!raw) return null;
+  if (fieldName === "contract_amount") return normalizeAmount(raw);
+  if (fieldName === "currency") return normalizeCurrency(raw);
+  if (
+    fieldName === "performance_start_date" ||
+    fieldName === "performance_end_date" ||
+    fieldName === "authority_date" ||
+    fieldName === "contract_date"
+  ) {
+    return normalizeDate(raw);
+  }
+  if (["inn", "kpp", "ogrn", "bik", "bank_account", "correspondent_account"].includes(fieldName)) {
+    return raw.replace(/\D/gu, "");
+  }
+  return raw.replace(/\s+/gu, " ").toLocaleLowerCase("ru-RU");
+}
+
 function sourceExists(
   value: ExtractedValue,
   sources: ExtractionSource[],
@@ -195,7 +217,7 @@ function conflictFromValues(
 ): ExtractionConflict | null {
   const unique = new Map<string, ExtractedValue>();
   for (const value of values) {
-    const key = comparable(value);
+    const key = canonicalComparable(fieldName, value);
     if (key !== null && !unique.has(key)) unique.set(key, value);
   }
   if (unique.size < 2) return null;
@@ -265,7 +287,15 @@ export function mergeExtractions(
 
   const modelConflicts = partials.flatMap((partial) => partial.conflicts);
   for (const conflict of modelConflicts) {
-    if (!conflicts.some((current) => current.fieldName === conflict.fieldName)) {
+    const canonical = new Set(
+      conflict.candidates
+        .map((candidate) => canonicalComparable(conflict.fieldName, candidate))
+        .filter((value): value is string => value !== null),
+    );
+    if (
+      canonical.size > 1 &&
+      !conflicts.some((current) => current.fieldName === conflict.fieldName)
+    ) {
       conflicts.push(conflict);
     }
   }
