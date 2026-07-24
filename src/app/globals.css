@@ -116,6 +116,16 @@ button:disabled {
   padding: 1.5rem;
 }
 
+.registry-panel {
+  max-width: none;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
 .page-heading {
   align-items: center;
   display: flex;

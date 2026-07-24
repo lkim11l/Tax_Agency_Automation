@@ -272,22 +272,26 @@ Give the customer an operational registry and a reliable monthly export.
 
 ## Tasks
 
-- [ ] Build contract registry.
-- [ ] Add date filters.
-- [ ] Add status filters.
-- [ ] Add counterparty filter.
-- [ ] Add amount totals.
-- [ ] Add links to application, contract, and correspondence.
-- [ ] Export XLSX.
-- [ ] Add monthly summary metrics.
-- [ ] List waiting-for-client applications.
-- [ ] List under-review applications.
-- [ ] List completed and incomplete applications.
-- [ ] Add report tests.
+- [x] Build contract registry.
+- [x] Add date filters.
+- [x] Add status filters.
+- [x] Add counterparty filter.
+- [x] Add amount totals.
+- [x] Add links to application, contract, and correspondence.
+- [x] Export XLSX.
+- [x] Add monthly summary metrics.
+- [x] List waiting-for-client applications.
+- [x] List under-review applications.
+- [x] List completed and incomplete applications.
+- [x] Add report tests.
 
 ## Acceptance gate
 
 The user can export a selected period and totals match persisted application and contract data.
+
+Accepted on 2026-07-23 against hosted Supabase and Microsoft Excel. Registry,
+scope, filters, pagination, totals, two-sheet XLSX, private persistence, cache,
+admin force regeneration, RLS, and audit passed using synthetic data.
 
 ---
 

@@ -265,3 +265,18 @@ an ambiguous error during/after SMTP DATA moves the draft to
 Active users receive read-only RLS; server actions alone use the secret client
 for review and delivery transitions. Phase 8 registry/reporting does not consume
 this module yet.
+## Phase 8 registry and reporting boundary
+
+`contract_registry_entries` is a service-only read projection; it does not
+broaden the Phase 1 table RLS surface. Server repository code applies the actor
+scope before filters and pagination and returns one page to the browser.
+
+Reporting derives metrics from the same scoped snapshot. PostgreSQL functions
+claim/finalize/fail immutable export records, while the application builds XLSX
+with ExcelJS and uploads it to private Storage. A schema/data fingerprint makes
+cache reuse deterministic and actor-specific. Direct authenticated mutations
+and orchestration calls are denied. Download authorization is rechecked before
+issuing a short-lived signed URL.
+
+Phase 9 concerns—deployment, scheduler, production onboarding, and operational
+hardening—are deliberately outside this boundary.

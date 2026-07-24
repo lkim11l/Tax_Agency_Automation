@@ -307,3 +307,25 @@ claims close double-send races across server processes, while a stable Message-I
 and honest uncertainty state minimize duplicate client communication. Keeping
 draft text deterministic and SMTP credentials server-only preserves
 auditability without introducing AI or Phase 8 concerns.
+
+## ADR-018 — Scoped database projection and immutable XLSX snapshots
+
+Status: Accepted
+
+Decision:
+Build the registry from a service-only PostgreSQL projection over existing
+Phase 1–7 records. Apply admin/specialist scope on the server before filters,
+sorting, and pagination. Persist report claims and transitions through
+service-role-only functions with advisory locks. Cache only when actor, report
+type, safe filters, schema version, and complete data fingerprint match.
+
+Generate the deployment XLSX with the existing ExcelJS 4.4.0 dependency,
+validate it before upload, and store it with SHA-256 in private Storage.
+Use the independent artifact-tool renderer and Microsoft Excel only as
+acceptance tools, not production dependencies.
+
+Reason:
+A database projection avoids duplicating operational state while server scope
+prevents browser-side leakage. Immutable, fingerprinted artifacts make monthly
+figures reproducible and auditable. Keeping acceptance tooling outside runtime
+avoids a second spreadsheet engine in the production dependency graph.

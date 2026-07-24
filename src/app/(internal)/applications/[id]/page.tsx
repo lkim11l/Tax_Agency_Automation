@@ -182,7 +182,7 @@ export default async function ApplicationDetailPage({
         </dl>
       </section>
 
-      <section className="panel section-gap">
+      <section className="panel section-gap" id="contract">
         <div className="page-heading">
           <div><h3>Contract review and delivery</h3><p className="muted">Phase 7 binds every human decision and SMTP delivery to one immutable DOCX checksum.</p></div>
         </div>
@@ -339,7 +339,7 @@ export default async function ApplicationDetailPage({
         ))}
       </section>
 
-      <section className="panel section-gap">
+      <section className="panel section-gap" id="correspondence">
         <h3>Correspondence</h3>
         {emails.length === 0 ? (
           <p className="muted">No email messages are linked to this application.</p>

@@ -2,12 +2,12 @@
 
 ## Current phase
 
-Phase 7 — Contract approval and delivery (complete)
+Phase 8 — Contract registry and reporting (complete)
 
 ## Sprint goal
 
-Approve one exact immutable DOCX version, deliver it once through Mail.ru SMTP,
-and preserve checksum-bound evidence without starting Phase 8.
+Provide a scoped operational registry and deterministic monthly XLSX report
+without starting Phase 9.
 
 ## Phase 1
 
@@ -297,7 +297,29 @@ status, contract status, status history, audit, RLS, and duplicate-send cache
 have been verified. The external recipient returned the unchanged DOCX, and its
 independently calculated SHA-256 matched the approved version exactly.
 
+## Phase 8 implementation
+
+- [x] Add a database-backed contract registry view over Phase 1–7 records.
+- [x] Add server filters, sorting, pagination, links, and filter-scoped totals.
+- [x] Keep currency totals separate and calculate deterministic monthly metrics.
+- [x] Add `Contracts` and `Summary` XLSX sheets with native number/date types.
+- [x] Preserve INN and bank accounts as text and neutralize formula-like values.
+- [x] Persist immutable report metadata and checksums in private Storage.
+- [x] Add actor-scoped fingerprint cache and admin force regeneration with reason.
+- [x] Add admin/specialist scope, anonymous/inactive denial, signed downloads, and audit.
+- [x] Apply hosted migration 015 without reset.
+- [x] Pass unit, hosted integration, live, artifact-tool render, and Microsoft Excel checks.
+
+## Phase 8 acceptance
+
+Accepted on 2026-07-23 using existing synthetic Phase 1–7 data. The live
+registry returned 90 July rows, database totals matched the export, currencies
+remained separate, cache and admin force regeneration passed, and the private
+XLSX checksum matched Storage. Specialist scope was tested with one temporary
+explicitly synthetic assignment and the original assignment was restored.
+Microsoft Excel opened the file read-only with exactly `Contracts` and
+`Summary`; date, amount, INN, and account formats passed.
+
 ## Next phase rule
 
-Phase 8 remains forbidden until Phase 7 is fully accepted and a separate direct
-user instruction starts it.
+Phase 9 remains forbidden until a separate direct user instruction starts it.

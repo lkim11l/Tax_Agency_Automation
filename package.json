@@ -30,7 +30,8 @@
     "test:extraction:eval": "node --env-file=.env.local --import tsx scripts/extraction-eval.ts",
     "test:clarification:live": "node --env-file=.env.local --import tsx scripts/clarification-live.ts",
     "test:contracts:live": "node --env-file=.env.local --import tsx scripts/contracts-live.ts",
-    "test:contract-delivery:live": "node --env-file=.env.local --import tsx scripts/contract-delivery-live.ts"
+    "test:contract-delivery:live": "node --env-file=.env.local --import tsx scripts/contract-delivery-live.ts",
+    "test:reports:live": "node --env-file=.env.local --import tsx scripts/reports-live.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",

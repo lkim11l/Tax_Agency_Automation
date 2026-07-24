@@ -350,3 +350,24 @@ The live command never uses customer documents. If it reports
 instruction and rerun it; success requires the received DOCX SHA-256 to match.
 See `docs/CONTRACT_REVIEW.md`, `docs/CONTRACT_DELIVERY.md`, and
 `docs/CONTRACT_DELIVERY_OPERATIONS.md`.
+
+## Contract registry and reporting
+
+Phase 8 adds the scoped operational registry at `/registry` and monthly reports
+at `/reports`. Filters, sorting, pagination, and totals run on the server.
+Specialists see only applications assigned to or created by them; administrators
+see the full registry.
+
+Exports are immutable XLSX files in private Supabase Storage. Identical
+actor/filter/schema/data snapshots reuse a persisted artifact. Administrators
+may force a new artifact only with a reason. Downloads use a 60-second signed
+URL and are audited.
+
+Run the hosted synthetic acceptance:
+
+```bash
+npm run test:reports:live
+```
+
+See `docs/CONTRACT_REGISTRY.md`, `docs/REPORTING.md`, and
+`docs/REPORTING_OPERATIONS.md`. Phase 9 is not included.
