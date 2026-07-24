@@ -40,10 +40,14 @@ paths referenced by those rows. Apply refuses a changed manifest or candidate
 set. Profiles, Auth users, migrations, configuration, mailbox/security/locking/
 retry/audit infrastructure and every unmarked row are preserved.
 
-Dry-run on 24.07.2026 selected 97 applications, 31 counterparties, 32 templates,
-11 report exports and 50 Storage objects. The integration suite subsequently
-created additional explicitly marked fixtures, so a new dry-run is mandatory
-immediately before apply. Apply remains pending explicit confirmation.
+The final confirmed manifest on 24.07.2026 selected and removed 100
+applications, 32 counterparties, 33 templates, 11 report exports and 50 Storage
+objects. Database deletion completed before Storage removal, all selected paths
+were removed, and the post-operation candidate inventory was empty.
+
+Three checksum-pinned presentation templates were then uploaded under the
+production codes `consulting`, `services` and `supply`. All passed validation
+and remain `pending_customer_approval`.
 
 ## Performance baseline
 

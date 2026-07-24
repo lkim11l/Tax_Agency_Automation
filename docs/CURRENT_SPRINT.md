@@ -26,10 +26,10 @@ business features.
 - [x] Add guarded production cleanup dry-run/apply commands and an external
   checksum-protected manifest.
 - [x] Complete cleanup dry-run with explicit markers and preservation rules.
-- [ ] Receive explicit destructive-operation confirmation and apply the guarded
+- [x] Receive explicit destructive-operation confirmation and apply the guarded
   cleanup migration and manifest.
-- [ ] Verify zero selected orphaned Storage objects.
-- [ ] Upload and verify the three presentation DOCX templates with
+- [x] Verify zero selected orphaned Storage objects.
+- [x] Upload and verify the three presentation DOCX templates with
   `pending_customer_approval`.
 - [ ] Deploy the code to Vercel and pass the production acceptance smoke.
 - [ ] Record post-deployment performance measurements and close the sprint.
