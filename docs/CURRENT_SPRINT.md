@@ -326,8 +326,10 @@ Phase 9 was started by direct user instruction. Do not start post-MVP work.
 
 ## Phase 9 — Pilot hardening and deployment
 
-- [x] Select Vercel Pro + hosted Supabase as the production target.
-- [x] Add production environment and five-minute cron configuration.
+- [x] Select Vercel Hobby + hosted Supabase as the current production target.
+- [x] Keep Hobby deployment free of registered cron schedules.
+- [x] Preserve the protected cron endpoint for a future Vercel Pro upgrade.
+- [x] Preserve administrator-initiated mailbox synchronization on Hobby.
 - [x] Add protected, database-locked, persisted mailbox pipeline runs.
 - [x] Limit automation to ingestion, parsing, extraction and completeness.
 - [x] Add public safe health and admin-only component/job status.
@@ -338,7 +340,8 @@ Phase 9 was started by direct user instruction. Do not start post-MVP work.
 - [ ] Link and deploy the Vercel production project.
 - [ ] Configure and verify the production URL, domain and production secrets.
 - [ ] Provision exactly one production admin and one production specialist.
-- [ ] Verify production cron scheduling and deployment smoke tests.
+- [ ] Verify the Hobby deployment and manual synchronization smoke test.
+- [ ] After customer payment, enable and verify five-minute Pro cron scheduling.
 - [ ] Perform an isolated database-and-Storage restore rehearsal.
 - [ ] Run and sign off the complete fresh synthetic end-to-end pilot scenario.
 - [ ] Train the initial operator and start the pilot.

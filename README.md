@@ -179,11 +179,13 @@ After signing in, the internal routes are:
 
 The public health endpoint is `GET /api/health`.
 
-The admin-only operational status page is `/settings`. A protected five-minute
-mailbox pipeline is configured at `GET /api/cron/mailbox`; production requires
-Vercel Pro and a server-only `CRON_SECRET`. Run a hosted non-sending smoke check
-with `npm run test:operations:smoke`. Deployment, incidents, backups, security
-and Russian operator steps are documented in `docs/DEPLOYMENT.md`,
+The admin-only operational status page is `/settings`. On Vercel Hobby, an
+administrator starts mailbox synchronization manually from that page; no
+Vercel Cron is registered. The protected `GET /api/cron/mailbox` endpoint and
+server-only `CRON_SECRET` remain available for a future Pro upgrade, when the
+pipeline can run every five minutes. Run a hosted non-sending smoke check with
+`npm run test:operations:smoke`. Deployment, incidents, backups, security and
+Russian operator steps are documented in `docs/DEPLOYMENT.md`,
 `docs/PILOT_RUNBOOK.md`, `docs/INCIDENT_RESPONSE.md`,
 `docs/BACKUP_RECOVERY.md`, `docs/SECURITY_CHECKLIST.md` and
 `docs/USER_GUIDE_RU.md`.

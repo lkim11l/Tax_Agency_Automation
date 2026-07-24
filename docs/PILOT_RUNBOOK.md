@@ -23,8 +23,7 @@ requests.
 
 Use synthetic names, documents and addresses. Execute the complete inbound
 email → reply → extraction → completeness → generation → review → delivery →
-registry → report scenario. Repeat the cron call and verify no duplicate email,
-application, attachment, extraction, history or delivery. The production pilot
-must not start until deployment, backup evidence, restore rehearsal and this
-scenario are signed off.
-
+registry → report scenario. Repeat the pipeline run and verify no duplicate
+email, application, attachment, extraction, history or delivery. The production
+pilot must not start until deployment, backup evidence, restore rehearsal and
+this scenario are signed off.

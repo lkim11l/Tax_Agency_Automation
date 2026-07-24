@@ -2,15 +2,21 @@
 
 ## Target
 
-Deploy the Next.js application to Vercel Pro, keep PostgreSQL/Auth/private
-Storage in a dedicated hosted Supabase production project, and run the
-five-minute mailbox pipeline through Vercel Cron. No OCR worker is deployed.
+Deploy the Next.js application to Vercel Hobby and keep
+PostgreSQL/Auth/private Storage in a dedicated hosted Supabase production
+project. On Hobby, an administrator starts mailbox synchronization manually
+from `/settings`. No Vercel Cron is registered and no OCR worker is deployed.
+
+After the customer approves Vercel Pro, automatic synchronization can be
+enabled every five minutes without changing the protected endpoint or
+background-processing implementation.
 
 ## Owner actions
 
 1. Create a new Vercel project from this GitHub repository and select `main`.
-2. Select the Pro plan: the committed `*/5 * * * *` schedule is not supported
-   by the Hobby daily cron limit.
+2. Keep the Hobby plan. The committed `vercel.json` intentionally contains no
+   `crons` entry, so deployment does not attempt to register a Pro-frequency
+   schedule.
 3. Set the production Node.js runtime to a supported Node 24 release.
 4. Add every value in `.env.example` that applies to production. At minimum:
    `APP_URL`, `APP_ENV=production`, `CRON_SECRET`, Supabase URL/publishable and
@@ -25,18 +31,39 @@ five-minute mailbox pipeline through Vercel Cron. No OCR worker is deployed.
    active specialist in Dashboard; disable public signup.
 8. Deploy, record the production URL, then configure and verify the custom
    domain and HTTPS.
-9. Invoke `GET /api/health`; then call `/api/cron/mailbox` with the bearer
-   secret once. Confirm the admin `/settings` page shows both persisted runs.
+9. Invoke `GET /api/health`, sign in as the administrator, and run mailbox
+   synchronization from `/settings`. Confirm the persisted run and component
+   statuses appear on that page.
 
 This repository is not currently linked to a Vercel project, so no production
 URL or domain has been verified.
 
-## Runtime behavior
+## Hobby runtime behavior
 
-Vercel calls `GET /api/cron/mailbox` every five minutes. The endpoint fails
-closed without the bearer secret. PostgreSQL admits one active job, recovers
-stale claims after the configured timeout, and preserves stages, counts and
-safe errors. Email ingestion, document parsing, extraction and completeness
-are idempotent. The job never approves or sends clarification or contract
-messages.
+Mailbox synchronization is manual from the administrator page. The same
+background pipeline still uses a PostgreSQL lock, rejects concurrent runs,
+recovers stale claims, retries transient stages, and persists stages, counts,
+audit records, and safe errors. Email ingestion, document parsing, extraction
+and completeness remain idempotent. The job never approves or sends
+clarification or contract messages.
 
+## Upgrade to Pro
+
+After payment, add this entry to `vercel.json` and deploy:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/mailbox",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+```
+
+Keep the existing server-only `CRON_SECRET`. Vercel will call the retained
+`GET /api/cron/mailbox` endpoint with its bearer authorization. Verify one
+automatic run on `/settings` after deployment. Do not configure a second
+scheduler.
