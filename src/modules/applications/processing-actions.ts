@@ -32,15 +32,16 @@ export async function processApplicationAction(formData: FormData) {
     });
     revalidatePath(`/applications/${parsed.data}`);
     message = result.claimed
-      ? "Обработка завершена. Проверьте итоговую сводку."
+      ? "Заявка успешно обработана."
       : result.cacheHit
         ? "Заявка уже обработана по текущим данным."
         : "Обработка этой заявки уже выполняется.";
   } catch (error) {
+    console.error("processApplicationAction failed", error);
     redirect(target(
       parsed.data,
       "error",
-      error instanceof Error ? error.message : "Не удалось обработать заявку.",
+      "Не удалось обработать заявку. Повторите попытку.",
     ));
   }
   redirect(target(parsed.data, "success", message));
@@ -75,10 +76,11 @@ export async function bulkAcceptSafeFieldsAction(formData: FormData) {
     ready = completeness.ready;
     revalidatePath(`/applications/${parsed.data}`);
   } catch (error) {
+    console.error("bulkAcceptSafeFieldsAction failed", error);
     redirect(target(
       parsed.data,
       "error",
-      error instanceof Error ? error.message : "Не удалось подтвердить поля.",
+      "Не удалось подтвердить данные. Повторите попытку.",
     ));
   }
   redirect(target(

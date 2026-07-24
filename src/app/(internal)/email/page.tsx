@@ -101,8 +101,8 @@ export default async function EmailOperationsPage({
           <form action={syncEmailAction}>
             <PendingFormButton
               idleLabel="Проверить почту"
-              pendingLabel="Синхронизация почты…"
-              pendingHint="Синхронизируем почтовый ящик, не закрывайте страницу."
+              pendingLabel="Синхронизируем почту…"
+              pendingHint="Не закрывайте страницу, пока идёт синхронизация."
             />
           </form>
         ) : null}

@@ -8,13 +8,13 @@ export function Feedback({
   return (
     <>
       {error ? (
-        <p className="alert alert-error" role="alert">
+        <p className="alert alert-error" role="alert" aria-live="assertive">
           {error}
         </p>
       ) : null}
       {success ? (
-        <p className="alert alert-success" role="status">
-          Изменения успешно сохранены.
+        <p className="alert alert-success" role="status" aria-live="polite">
+          {success}
         </p>
       ) : null}
     </>

@@ -223,9 +223,9 @@ export default async function ApplicationDetailPage({
               <input type="hidden" name="application_id" value={application.id} />
               <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} — {template.template_type}</option>)}</select></label>
               <PendingFormButton
-                idleLabel="Сформировать проект договора"
-                pendingLabel="Формирование договора…"
-                pendingHint="Формируем проект договора DOCX. Отправка клиенту останется заблокированной до проверки и одобрения сотрудником."
+                idleLabel="Сформировать DOCX"
+                pendingLabel="Формируем проект договора…"
+                pendingHint="Не закрывайте страницу. Отправка клиенту останется заблокированной до проверки и одобрения сотрудником."
               />
             </form>
           </div>

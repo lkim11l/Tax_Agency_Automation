@@ -126,8 +126,8 @@ export function ExtractionReviewPanel({
           <input type="hidden" name="application_id" value={applicationId} />
           <PendingFormButton
             idleLabel="Обработать заявку"
-            pendingLabel="Обработка заявки…"
-            pendingHint="Заявка обрабатывается: проверяются вложения, извлекаются данные, пересчитывается комплектность. Не закрывайте страницу."
+            pendingLabel="Обрабатываем заявку…"
+            pendingHint="Не закрывайте страницу. Обработка может занять до нескольких минут."
           />
         </form>
       </div>
@@ -164,8 +164,8 @@ export function ExtractionReviewPanel({
           <input type="hidden" name="application_id" value={applicationId} />
           <PendingFormButton
             idleLabel="Подтвердить все корректные данные"
-            pendingLabel="Подтверждение данных…"
-            pendingHint="Подтверждаем безопасные данные и пересчитываем комплектность."
+            pendingLabel="Подтверждаем данные…"
+            pendingHint="Не закрывайте страницу, пока данные подтверждаются."
             disabled={acceptancePreview.eligible.length === 0}
           />
         </form>
