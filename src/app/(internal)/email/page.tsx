@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Feedback } from "@/components/feedback";
+import { PendingFormButton } from "@/components/pending-form-button";
 import {
   manualLinkEmailAction,
   reprocessEmailAction,
@@ -98,7 +99,11 @@ export default async function EmailOperationsPage({
         </div>
         {operations.isAdmin ? (
           <form action={syncEmailAction}>
-            <button type="submit">Проверить почту</button>
+            <PendingFormButton
+              idleLabel="Проверить почту"
+              pendingLabel="Синхронизация почты…"
+              pendingHint="Синхронизируем почтовый ящик, не закрывайте страницу."
+            />
           </form>
         ) : null}
       </div>

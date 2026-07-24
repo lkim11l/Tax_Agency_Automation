@@ -112,6 +112,15 @@ export async function recalculateCompleteness(input: {
       conflictDetected: field.conflict_detected,
       manuallyCorrected: field.manually_corrected,
       accepted: accepted.has(`${field.id}:${valueFingerprint}`),
+      fieldState:
+        (field.structured_value as Record<string, unknown> | null)?.fieldState ===
+          "not_applicable" ||
+        (field.structured_value as Record<string, unknown> | null)?.fieldState ===
+          "system_managed"
+          ? ((field.structured_value as Record<string, unknown>).fieldState as
+              | "not_applicable"
+              | "system_managed")
+          : null,
     };
     },
   );

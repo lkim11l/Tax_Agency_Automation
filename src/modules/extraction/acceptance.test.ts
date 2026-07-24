@@ -106,19 +106,41 @@ describe("safe field acceptance", () => {
   });
 
   it("previews bulk confirmation without creating manual corrections", () => {
-    const preview = previewSafeAcceptance([
-      field(),
-      field({
-        id: "33333333-3333-4333-8333-333333333333",
-        field_name: "legal_name",
-        structured_value: { normalizedValue: null },
-        raw_value: null,
-        source_excerpt: null,
-      }),
-    ]);
+    const preview = previewSafeAcceptance(
+      [
+        field(),
+        field({
+          id: "33333333-3333-4333-8333-333333333333",
+          field_name: "legal_name",
+          structured_value: { normalizedValue: null },
+          raw_value: null,
+          source_excerpt: null,
+        }),
+      ],
+      [],
+      new Set(["legal_name"]),
+    );
     expect(preview.eligible).toHaveLength(1);
     expect(preview.blocked).toEqual([
       expect.objectContaining({ fieldName: "legal_name", reason: "MISSING_VALUE" }),
     ]);
+  });
+
+  it("does not report a missing optional field as blocked", () => {
+    const preview = previewSafeAcceptance(
+      [
+        field({
+          id: "33333333-3333-4333-8333-333333333333",
+          field_name: "additional_conditions",
+          structured_value: { normalizedValue: null },
+          raw_value: null,
+          source_excerpt: null,
+        }),
+      ],
+      [],
+      new Set(["legal_name"]),
+    );
+    expect(preview.eligible).toHaveLength(0);
+    expect(preview.blocked).toHaveLength(0);
   });
 });

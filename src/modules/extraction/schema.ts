@@ -37,6 +37,7 @@ export const extractedValueSchema = z.object({
   confidence: z.number().min(0).max(1),
   requiresReview: z.boolean(),
   reason: extractionReasonSchema.nullable(),
+  fieldState: z.enum(["not_applicable", "system_managed"]).nullable().optional(),
 });
 
 function createFieldGroup<const T extends readonly string[]>(fieldNames: T) {

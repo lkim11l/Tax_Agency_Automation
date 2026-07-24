@@ -19,6 +19,7 @@ import {
   formatFragments,
   selectRelevantFragments,
 } from "./preprocessing";
+import { applyDerivedFieldRules } from "./authority";
 import {
   enforceSourceAttribution,
   mergeExtractions,
@@ -194,7 +195,7 @@ export async function runExtraction(input: {
       ? await loadCurrentExtraction(input.applicationId, supabase)
       : null;
     if (baseline) partials.unshift(baseline);
-    const extraction = mergeExtractions(partials, candidates);
+    const extraction = applyDerivedFieldRules(mergeExtractions(partials, candidates));
     const completed = await supabase.rpc("complete_extraction_run", {
       p_run_id: claim.run_id,
       p_fields: serializeFields(extraction),

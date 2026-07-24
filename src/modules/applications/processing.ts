@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin.server";
 import { createDraft, recalculateCompleteness } from "@/modules/clarification/service";
+import { getRuleSet } from "@/modules/clarification/rules";
 import { parseAttachment } from "@/modules/documents/orchestrator";
 import {
   recordSafeFieldAcceptances,
@@ -52,7 +53,7 @@ async function saveStages(
   if (result.error) throw new Error("Не удалось сохранить ход обработки.");
 }
 
-async function ruleSetForApplication(applicationId: string, admin: SupabaseClient) {
+export async function ruleSetForApplication(applicationId: string, admin: SupabaseClient) {
   const application = await admin
     .from("applications")
     .select("contract_template_id")
@@ -228,6 +229,11 @@ export async function processApplication(input: {
     stages.extraction.status = "completed";
     await saveStages(claimData.run_id, stages, admin);
 
+    const ruleSetId = await ruleSetForApplication(input.applicationId, admin);
+    const requiredFieldNames = new Set(
+      getRuleSet(ruleSetId).rules.filter((rule) => rule.required).map((rule) => rule.fieldName),
+    );
+
     stages.acceptance.status = "running";
     await saveStages(claimData.run_id, stages, admin);
     const acceptance = await recordSafeFieldAcceptances({
@@ -235,6 +241,7 @@ export async function processApplication(input: {
       actorId: input.actorId,
       method: "automatic",
       admin,
+      requiredFieldNames,
     });
     stages.acceptance = {
       status: "completed",
@@ -246,7 +253,7 @@ export async function processApplication(input: {
     await saveStages(claimData.run_id, stages, admin);
     const completeness = await recalculateCompleteness({
       applicationId: input.applicationId,
-      ruleSetId: await ruleSetForApplication(input.applicationId, admin),
+      ruleSetId,
       initiatedBy: input.actorId,
       admin,
     });

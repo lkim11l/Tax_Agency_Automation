@@ -47,9 +47,7 @@ export function mapContractValues(input: MappingSource) {
   const result: Partial<Record<ContractPlaceholder, string>> = {
     application_number: input.applicationNumber,
     contract_number: input.contractNumber,
-    contract_date: formatRussianDate(
-      String(value("contract_date") ?? input.generatedDate),
-    ),
+    contract_date: formatRussianDate(input.generatedDate),
     client_legal_name: String(value("legal_name") ?? ""),
     client_short_name: String(value("short_name") ?? ""),
     client_inn: String(value("inn") ?? ""),

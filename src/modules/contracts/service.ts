@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getOperationalContext } from "@/lib/auth/context";
+import { getProjectDateIso } from "@/lib/project-time";
 import { createAdminClient } from "@/lib/supabase/admin.server";
 import { computeExtractionFingerprint } from "@/modules/clarification/fingerprint";
 
@@ -368,12 +369,13 @@ export async function generateContract(input: {
     });
     throw new Error(`GENERATION_BLOCKED:${source.blocking.join(",")}`);
   }
+  const generatedDate = getProjectDateIso();
   let previewValues: ReturnType<typeof mapContractValues>;
   try {
     previewValues = mapContractValues({
       applicationNumber: source.application.application_number,
       contractNumber: "TAA-PENDING",
-      generatedDate: new Date().toISOString().slice(0, 10),
+      generatedDate,
       fields: source.fields,
     });
   } catch (error) {
@@ -458,7 +460,7 @@ export async function generateContract(input: {
     const renderedValues = mapContractValues({
       applicationNumber: source.application.application_number,
       contractNumber: claim.contract_number,
-      generatedDate: new Date().toISOString().slice(0, 10),
+      generatedDate,
       fields: source.fields,
     });
     const output = renderDocxTemplate({ content: templateContent, values: renderedValues });

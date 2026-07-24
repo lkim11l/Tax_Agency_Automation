@@ -22,6 +22,8 @@ import {
   previewSafeAcceptance,
   type AcceptanceField,
 } from "./acceptance";
+import { syncDerivedFieldRules } from "./authority";
+import { getRuleSet } from "@/modules/clarification/rules";
 
 function checksum(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -205,7 +207,8 @@ export type ExtractionFieldRecord = {
 
 export async function getApplicationExtraction(applicationId: string) {
   const { supabase, profile } = await getOperationalContext();
-  const [fields, runs, conflicts, corrections, documentSources, acceptances] = await Promise.all([
+  const [fields, runs, conflicts, corrections, documentSources, acceptances, application] =
+    await Promise.all([
     supabase
       .from("extracted_fields")
       .select(
@@ -242,6 +245,11 @@ export async function getApplicationExtraction(applicationId: string) {
       .from("extracted_field_acceptances")
       .select("extracted_field_id,value_fingerprint,acceptance_method,created_at")
       .eq("application_id", applicationId),
+    supabase
+      .from("applications")
+      .select("contract_template_id")
+      .eq("id", applicationId)
+      .single(),
   ]);
   const error =
     fields.error ??
@@ -249,8 +257,22 @@ export async function getApplicationExtraction(applicationId: string) {
     conflicts.error ??
     corrections.error ??
     documentSources.error ??
-    acceptances.error;
+    acceptances.error ??
+    application.error;
   if (error) throw new Error(`Unable to load extracted data: ${error.message}`);
+  let ruleSetId = "standard-contract";
+  if (application.data?.contract_template_id) {
+    const template = await supabase
+      .from("contract_templates")
+      .select("required_rule_set")
+      .eq("id", application.data.contract_template_id)
+      .maybeSingle();
+    if (template.error) throw new Error(`Unable to load template rules: ${template.error.message}`);
+    ruleSetId = template.data?.required_rule_set || ruleSetId;
+  }
+  const requiredFieldNames = new Set(
+    getRuleSet(ruleSetId).rules.filter((rule) => rule.required).map((rule) => rule.fieldName),
+  );
   const fieldRows = (fields.data ?? []) as unknown as ExtractionFieldRecord[];
   const accepted = new Set(
     (acceptances.data ?? []).map((item) =>
@@ -269,6 +291,7 @@ export async function getApplicationExtraction(applicationId: string) {
       candidates: unknown;
       requires_review: boolean;
     }>,
+    requiredFieldNames,
   );
   return {
     fields: decoratedFields,
@@ -277,6 +300,7 @@ export async function getApplicationExtraction(applicationId: string) {
     corrections: corrections.data ?? [],
     acceptances: acceptances.data ?? [],
     acceptancePreview,
+    requiredFieldNames: [...requiredFieldNames],
     documentSources: Object.fromEntries(
       (documentSources.data ?? []).map((source) => [source.id, source.attachment_id]),
     ) as Record<string, string>,
@@ -335,5 +359,16 @@ export async function correctExtractedField(input: {
     p_source_excerpt: input.sourceExcerpt ?? null,
   });
   if (error) throw new Error(`Unable to correct extracted field: ${error.message}`);
+  if (
+    input.fieldName === "signer_authority" ||
+    input.fieldName === "authority_document" ||
+    input.fieldName === "authority_number" ||
+    input.fieldName === "authority_date"
+  ) {
+    await syncDerivedFieldRules({
+      applicationId: input.applicationId,
+      admin: createAdminClient(),
+    });
+  }
   return data as string;
 }

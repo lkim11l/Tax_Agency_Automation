@@ -2,6 +2,7 @@ import {
   bulkAcceptSafeFieldsAction,
   processApplicationAction,
 } from "@/modules/applications/processing-actions";
+import { PendingFormButton } from "@/components/pending-form-button";
 import { correctExtractedFieldAction } from "@/modules/extraction/actions";
 import {
   extractionFieldLabelRu,
@@ -36,8 +37,18 @@ function fieldValue(field: Field) {
   return value === null || value === undefined ? "" : String(value);
 }
 
-function fieldStatus(field: Field) {
-  if (!fieldValue(field)) return "missing" as const;
+function derivedFieldState(field: Field) {
+  const state = field.structured_value?.fieldState;
+  return state === "not_applicable" || state === "system_managed" ? state : null;
+}
+
+function fieldStatus(field: Field, requiredFieldNames: ReadonlySet<string>) {
+  if (derivedFieldState(field)) return "not_applicable" as const;
+  if (!fieldValue(field)) {
+    return requiredFieldNames.has(field.field_name)
+      ? ("missing" as const)
+      : ("optional_empty" as const);
+  }
   if (field.conflict_detected) return "conflict" as const;
   if (field.accepted || field.manually_corrected) return "accepted" as const;
   return "review" as const;
@@ -61,6 +72,7 @@ export function ExtractionReviewPanel({
   acceptancePreview,
   filter,
   completeness,
+  requiredFieldNames = [],
 }: {
   applicationId: string;
   fields: Field[];
@@ -76,16 +88,18 @@ export function ExtractionReviewPanel({
     missing_count: number;
     conflict_count: number;
   } | null;
+  requiredFieldNames?: readonly string[];
 }) {
+  const required = new Set(requiredFieldNames);
   const counts = {
     found: fields.filter((field) => fieldValue(field)).length,
-    accepted: fields.filter((field) => fieldStatus(field) === "accepted").length,
-    review: fields.filter((field) => fieldStatus(field) === "review").length,
-    conflict: fields.filter((field) => fieldStatus(field) === "conflict").length,
-    missing: fields.filter((field) => fieldStatus(field) === "missing").length,
+    accepted: fields.filter((field) => fieldStatus(field, required) === "accepted").length,
+    review: fields.filter((field) => fieldStatus(field, required) === "review").length,
+    conflict: fields.filter((field) => fieldStatus(field, required) === "conflict").length,
+    missing: fields.filter((field) => fieldStatus(field, required) === "missing").length,
   };
   const visible = fields.filter((field) => {
-    const status = fieldStatus(field);
+    const status = fieldStatus(field, required);
     if (filter === "all") return true;
     if (filter === "review") return status === "review" || status === "conflict";
     return status === filter;
@@ -110,7 +124,11 @@ export function ExtractionReviewPanel({
         </div>
         <form action={processApplicationAction}>
           <input type="hidden" name="application_id" value={applicationId} />
-          <button type="submit">Обработать заявку</button>
+          <PendingFormButton
+            idleLabel="Обработать заявку"
+            pendingLabel="Обработка заявки…"
+            pendingHint="Заявка обрабатывается: проверяются вложения, извлекаются данные, пересчитывается комплектность. Не закрывайте страницу."
+          />
         </form>
       </div>
 
@@ -144,9 +162,12 @@ export function ExtractionReviewPanel({
         </div>
         <form action={bulkAcceptSafeFieldsAction}>
           <input type="hidden" name="application_id" value={applicationId} />
-          <button type="submit" disabled={acceptancePreview.eligible.length === 0}>
-            Подтвердить все корректные данные
-          </button>
+          <PendingFormButton
+            idleLabel="Подтвердить все корректные данные"
+            pendingLabel="Подтверждение данных…"
+            pendingHint="Подтверждаем безопасные данные и пересчитываем комплектность."
+            disabled={acceptancePreview.eligible.length === 0}
+          />
         </form>
       </div>
       {acceptancePreview.blocked.length > 0 ? (
@@ -188,16 +209,22 @@ export function ExtractionReviewPanel({
       ) : (
         <div className="stack">
           {visible.map((field) => {
-            const status = fieldStatus(field);
+            const status = fieldStatus(field, required);
             const value = fieldValue(field);
             const reason = String(field.structured_value?.reason ?? "");
             const conflict = conflicts.find((item) => item.field_name === field.field_name);
+            const emptyLabel =
+              status === "not_applicable"
+                ? "Не требуется"
+                : status === "optional_empty"
+                  ? "Необязательное поле, не заполнено"
+                  : "Значение отсутствует";
             return (
               <article className="document-card review-field-card" key={field.id}>
                 <div className="page-heading">
                   <div>
                     <strong>{extractionFieldLabelRu(field.field_name)}</strong>
-                    <p>{value || "Значение отсутствует"}</p>
+                    <p>{value || emptyLabel}</p>
                   </div>
                   <span>
                     {status === "accepted"
@@ -206,7 +233,11 @@ export function ExtractionReviewPanel({
                         ? reviewStatusLabelsRu.conflict
                         : status === "missing"
                           ? reviewStatusLabelsRu.missing
-                          : reviewStatusLabelsRu.review}
+                          : status === "not_applicable"
+                            ? reviewStatusLabelsRu.not_applicable
+                            : status === "optional_empty"
+                              ? reviewStatusLabelsRu.optional_empty
+                              : reviewStatusLabelsRu.review}
                   </span>
                 </div>
                 <p className="muted">

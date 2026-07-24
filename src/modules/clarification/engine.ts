@@ -12,6 +12,7 @@ export type CompletenessFieldInput = {
   conflictDetected: boolean;
   manuallyCorrected: boolean;
   accepted?: boolean;
+  fieldState?: "not_applicable" | "system_managed" | null;
 };
 
 export type FieldResultStatus =
@@ -69,6 +70,22 @@ export function evaluateCompleteness(
     const required = rule.required && !conditionalSatisfied;
     let status: FieldResultStatus = "complete";
     let reason: string | null = null;
+
+    if (
+      field?.fieldState === "not_applicable" ||
+      field?.fieldState === "system_managed"
+    ) {
+      return {
+        fieldName: rule.fieldName,
+        label: rule.label,
+        question: rule.question,
+        required: false,
+        status: "complete",
+        blocking: false,
+        confidence: field?.confidence ?? null,
+        reason: null,
+      };
+    }
 
     if (!field || !isPresent(field.value)) {
       status = required ? "missing" : "complete";

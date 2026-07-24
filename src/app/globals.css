@@ -420,6 +420,24 @@ tbody tr:hover {
   width: 1.5rem;
 }
 
+.button-spinner {
+  display: inline-block;
+  height: 0.95rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.15rem;
+  width: 0.95rem;
+  border-width: 2px;
+}
+
+button[aria-busy="true"] {
+  cursor: wait;
+}
+
+.form-pending-hint {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

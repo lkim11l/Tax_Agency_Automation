@@ -42,6 +42,8 @@ export const reviewStatusLabelsRu = {
   invalid: "Значение не прошло проверку",
   missing: "Значение отсутствует",
   review: "Требуется проверка",
+  not_applicable: "Не требуется",
+  optional_empty: "Необязательное поле",
 } as const;
 
 export function extractionReasonRu(reason: string | null | undefined) {

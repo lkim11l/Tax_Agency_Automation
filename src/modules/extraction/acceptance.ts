@@ -30,6 +30,7 @@ export type AcceptanceField = {
   conflict_detected: boolean;
   manually_corrected: boolean;
   extraction_run_id?: string | null;
+  accepted?: boolean;
 };
 
 type ConflictRecord = {
@@ -50,7 +51,10 @@ export type AcceptanceDecision = {
     | "INVALID_VALUE"
     | "SOURCE_REQUIRED"
     | "TRUE_CONFLICT"
-    | "MANUALLY_CONFIRMED";
+    | "MANUALLY_CONFIRMED"
+    | "ALREADY_ACCEPTED"
+    | "NOT_APPLICABLE"
+    | "SYSTEM_MANAGED";
 };
 
 const labelPatterns: Record<string, RegExp> = {
@@ -219,11 +223,34 @@ function conflictResolution(
   };
 }
 
+function fieldState(field: AcceptanceField) {
+  const state = field.structured_value?.fieldState;
+  return typeof state === "string" ? state : null;
+}
+
 export function assessSafeAcceptance(
   field: AcceptanceField,
   conflicts: ConflictRecord[] = [],
 ): AcceptanceDecision {
   const fingerprint = fieldValueFingerprint(field);
+  if (field.accepted) {
+    return {
+      fieldId: field.id, fieldName: field.field_name, valueFingerprint: fingerprint,
+      eligible: false, resolveConflict: false, reason: "ALREADY_ACCEPTED",
+    };
+  }
+  if (fieldState(field) === "not_applicable") {
+    return {
+      fieldId: field.id, fieldName: field.field_name, valueFingerprint: fingerprint,
+      eligible: false, resolveConflict: false, reason: "NOT_APPLICABLE",
+    };
+  }
+  if (fieldState(field) === "system_managed") {
+    return {
+      fieldId: field.id, fieldName: field.field_name, valueFingerprint: fingerprint,
+      eligible: false, resolveConflict: false, reason: "SYSTEM_MANAGED",
+    };
+  }
   if (field.manually_corrected) {
     return {
       fieldId: field.id, fieldName: field.field_name, valueFingerprint: fingerprint,
@@ -269,13 +296,25 @@ export function assessSafeAcceptance(
 export function previewSafeAcceptance(
   fields: AcceptanceField[],
   conflicts: ConflictRecord[] = [],
+  requiredFieldNames: ReadonlySet<string> = new Set(),
 ) {
   const decisions = fields.map((field) => assessSafeAcceptance(field, conflicts));
-  return {
-    decisions,
-    eligible: decisions.filter((decision) => decision.eligible),
-    blocked: decisions.filter((decision) => !decision.eligible),
-  };
+  const eligible = decisions.filter((decision) => decision.eligible);
+  const blocked = decisions.filter((decision) => {
+    if (
+      decision.reason === "ALREADY_ACCEPTED" ||
+      decision.reason === "MANUALLY_CONFIRMED" ||
+      decision.reason === "NOT_APPLICABLE" ||
+      decision.reason === "SYSTEM_MANAGED"
+    ) {
+      return false;
+    }
+    if (decision.reason === "MISSING_VALUE") {
+      return requiredFieldNames.has(decision.fieldName);
+    }
+    return !decision.eligible;
+  });
+  return { decisions, eligible, blocked };
 }
 
 export async function recordSafeFieldAcceptances(input: {
@@ -283,6 +322,7 @@ export async function recordSafeFieldAcceptances(input: {
   actorId: string;
   method: "automatic" | "bulk";
   admin: SupabaseClient;
+  requiredFieldNames?: ReadonlySet<string>;
 }) {
   const [fields, conflicts] = await Promise.all([
     input.admin
@@ -296,9 +336,25 @@ export async function recordSafeFieldAcceptances(input: {
       .eq("requires_review", true),
   ]);
   if (fields.error || conflicts.error) throw new Error("Не удалось проверить извлечённые данные.");
+  const [acceptances] = await Promise.all([
+    input.admin
+      .from("extracted_field_acceptances")
+      .select("extracted_field_id,value_fingerprint")
+      .eq("application_id", input.applicationId),
+  ]);
+  if (acceptances.error) throw new Error("Не удалось проверить подтверждения данных.");
+  const accepted = new Set(
+    (acceptances.data ?? []).map((item) =>
+      `${item.extracted_field_id}:${item.value_fingerprint}`),
+  );
+  const decoratedFields = ((fields.data ?? []) as AcceptanceField[]).map((field) => ({
+    ...field,
+    accepted: accepted.has(`${field.id}:${fieldValueFingerprint(field)}`),
+  }));
   const preview = previewSafeAcceptance(
-    (fields.data ?? []) as AcceptanceField[],
+    decoratedFields,
     (conflicts.data ?? []) as ConflictRecord[],
+    input.requiredFieldNames,
   );
   const candidates = preview.eligible.map((decision) => ({
     field_id: decision.fieldId,
@@ -326,5 +382,13 @@ export async function recordSafeFieldAcceptances(input: {
     p_candidates: candidates,
   });
   if (result.error) throw new Error("Не удалось сохранить подтверждение данных.");
-  return { preview, result: result.data as Record<string, unknown> };
+  return {
+    preview,
+    result: result.data as {
+      batch_id: string;
+      accepted_count: number;
+      blocked_count: number;
+      cache_hit: boolean;
+    },
+  };
 }

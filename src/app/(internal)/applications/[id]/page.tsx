@@ -7,6 +7,7 @@ import { ApplicationForm } from "@/components/application-form";
 import { ContractDeliveryPanel } from "@/components/contract-delivery-panel";
 import { ExtractionReviewPanel } from "@/components/extraction-review-panel";
 import { Feedback } from "@/components/feedback";
+import { PendingFormButton } from "@/components/pending-form-button";
 import {
   appendNoteAction,
   changeStatusAction,
@@ -121,6 +122,7 @@ export default async function ApplicationDetailPage({
         acceptancePreview={extractionData.acceptancePreview}
         filter={fieldFilter}
         completeness={clarification.latestRun}
+        requiredFieldNames={extractionData.requiredFieldNames}
       />
 
       <section className="panel section-gap">
@@ -207,14 +209,26 @@ export default async function ApplicationDetailPage({
           <div><h3>Проверка и отправка договора</h3><p className="muted">Каждое решение сотрудника и отправка привязаны к контрольной сумме неизменяемого DOCX.</p></div>
         </div>
         {contractState.templates.length === 0 ? <p className="muted">Нет одобренного активного шаблона DOCX.</p> : (
-          <form className="stack">
-            <input type="hidden" name="application_id" value={application.id} />
-            <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} — {template.template_type}</option>)}</select></label>
-            <div className="inline-actions">
-              <button formAction={checkContractEligibilityAction}>Проверить готовность</button>
-              <button formAction={generateContractAction}>Сформировать DOCX</button>
-            </div>
-          </form>
+          <div className="two-column">
+            <form action={checkContractEligibilityAction} className="stack">
+              <input type="hidden" name="application_id" value={application.id} />
+              <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} — {template.template_type}</option>)}</select></label>
+              <PendingFormButton
+                idleLabel="Проверить готовность"
+                pendingLabel="Проверка готовности…"
+                pendingHint="Проверяем комплектность и данные шаблона."
+              />
+            </form>
+            <form action={generateContractAction} className="stack">
+              <input type="hidden" name="application_id" value={application.id} />
+              <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version} — {template.template_type}</option>)}</select></label>
+              <PendingFormButton
+                idleLabel="Сформировать проект договора"
+                pendingLabel="Формирование договора…"
+                pendingHint="Формируем проект договора DOCX. Отправка клиенту останется заблокированной до проверки и одобрения сотрудником."
+              />
+            </form>
+          </div>
         )}
         {contractState.isAdmin && contractState.templates.length > 0 && contractState.contracts.length > 0 ? (
           <form action={generateContractAction} className="stack section-gap">
@@ -222,7 +236,11 @@ export default async function ApplicationDetailPage({
             <label className="field">Одобренный шаблон<select name="template_id">{contractState.templates.map((template) => <option key={template.id} value={template.id}>{template.name} v{template.version}</option>)}</select></label>
             <input type="hidden" name="force" value="1" />
             <label className="field">Причина повторного формирования<input name="force_reason" required minLength={2} maxLength={1000} /></label>
-            <button>Создать новую неизменяемую версию</button>
+            <PendingFormButton
+              idleLabel="Создать новую неизменяемую версию"
+              pendingLabel="Формирование новой версии…"
+              pendingHint="Формируем новую неизменяемую версию проекта договора."
+            />
           </form>
         ) : null}
         {contractState.contracts.map((contract) => (
