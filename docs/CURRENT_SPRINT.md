@@ -31,8 +31,8 @@ business features.
 - [x] Verify zero selected orphaned Storage objects.
 - [x] Upload and verify the three presentation DOCX templates with
   `pending_customer_approval`.
-- [ ] Deploy the code to Vercel and pass the production acceptance smoke.
-- [ ] Record post-deployment performance measurements and close the sprint.
+- [x] Deploy the code to Vercel and pass the production acceptance smoke.
+- [x] Record post-deployment performance measurements and close the sprint.
 
 ## Phase 1
 

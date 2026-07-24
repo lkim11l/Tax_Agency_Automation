@@ -75,3 +75,30 @@ remain possible. Final measurements are recorded only after deployment.
 - `(template_type, updated_at desc)` supports template browsing.
 - `contracts(contract_number)` supports registry lookup.
 - `(period_start, period_end, created_at desc)` supports report history.
+
+## Production acceptance
+
+Deployment at `https://tax-agency-automation.vercel.app` passed:
+
+- health `200 / ok`, with `mailbox.mode = manual`;
+- anonymous redirect and real admin login/logout;
+- Russian default product title and internal pages;
+- applications, registry, templates, reports and settings desktop/mobile HTTP;
+- exactly three presentation templates with customer approval pending;
+- no visible Integration, Hosted Phase, TAA-PHASE or MOCK markers;
+- two completed non-sending manual pipeline smoke runs.
+
+Representative post-deployment measurements:
+
+| Route | First total | Warm total | Payload |
+|---|---:|---:|---:|
+| `/applications` | 1504 ms | 1016 ms | 20079 B |
+| `/registry` | 905 ms | 1267 ms | 22731 B |
+| `/templates` | 675 ms | 992 ms | 26549 B |
+| `/reports` | 1684 ms | 595 ms | 17855 B |
+| `/settings` | 1237 ms | 552 ms | 20140 B |
+
+The applications payload fell from 117164 B to 20079 B. Registry and templates
+payloads also fell materially. Individual Hobby requests still show cold-start
+and network variance; one observed applications repeat reached 2395 ms, while
+the next warm measurement was 1016 ms.
