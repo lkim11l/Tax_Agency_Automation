@@ -29,6 +29,7 @@ export type TemplateListItem = {
   };
   approved_by: string | null;
   approved_at: string | null;
+  legal_approval_status: "pending_customer_approval" | "approved" | "rejected";
   creator?: { email: string; full_name: string | null }[] | null;
   approver?: { email: string; full_name: string | null }[] | null;
 };
@@ -38,7 +39,7 @@ export async function listTemplates() {
   const { data, error } = await supabase
     .from("contract_templates")
     .select(
-      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
+      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,legal_approval_status,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
     )
     .order("name");
 
@@ -61,7 +62,7 @@ export async function getTemplate(id: string) {
   const { data, error } = await supabase
     .from("contract_templates")
     .select(
-      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
+      "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,legal_approval_status,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
     )
     .eq("id", id)
     .maybeSingle();

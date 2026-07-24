@@ -1,15 +1,31 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { getLocale } from "@/lib/i18n";
 import {
   approveTemplate,
   setTemplateLifecycle,
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
 import { completenessRuleSets } from "@/modules/clarification/rules";
+import {
+  templateUploadMessage,
+  TemplateUploadError,
+  type TemplateUploadErrorCode,
+} from "@/modules/templates/upload-errors";
+
+export type TemplateUploadState = {
+  status: "idle" | "error" | "success";
+  message?: string;
+  code?: TemplateUploadErrorCode;
+  templateId?: string;
+  operationId?: string;
+};
 
 const uploadSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -23,7 +39,12 @@ const uploadSchema = z.object({
   requiredPlaceholders: z.array(z.string()).min(1).max(100),
 });
 
-export async function uploadTemplateAction(formData: FormData) {
+export async function uploadTemplateAction(
+  _previous: TemplateUploadState,
+  formData: FormData,
+): Promise<TemplateUploadState> {
+  const operationId = randomUUID();
+  const locale = await getLocale();
   const file = formData.get("file");
   const parsed = uploadSchema.safeParse({
     name: formData.get("name"),
@@ -36,22 +57,39 @@ export async function uploadTemplateAction(formData: FormData) {
       .split(",").map((item) => item.trim()).filter(Boolean),
   });
   if (!parsed.success || !(file instanceof File) || file.size === 0 || file.size > 10_485_760) {
-    redirect("/templates?error=Invalid template upload.");
+    return {
+      status: "error",
+      code: "TEMPLATE_VALIDATION_FAILED",
+      message: templateUploadMessage("TEMPLATE_VALIDATION_FAILED", locale),
+      operationId,
+    };
   }
-  let destination: string;
   try {
     const result = await uploadTemplateVersion({
       ...parsed.data,
       filename: file.name,
       mimeType: file.type,
       content: Buffer.from(await file.arrayBuffer()),
+      operationId,
     });
     revalidatePath("/templates");
-    destination = `/templates/${result.templateId}?success=uploaded`;
+    return {
+      status: "success",
+      message: locale === "ru" ? "Шаблон загружен и проверен." : "Template uploaded and validated.",
+      templateId: result.templateId,
+      operationId,
+    };
   } catch (error) {
-    destination = `/templates?error=${encodeURIComponent(error instanceof Error ? error.message : "Template upload failed.")}`;
+    const code = error instanceof TemplateUploadError
+      ? error.safeCode
+      : "TEMPLATE_DB_INSERT_FAILED";
+    return {
+      status: "error",
+      code,
+      message: templateUploadMessage(code, locale),
+      operationId,
+    };
   }
-  redirect(destination);
 }
 
 export async function templateLifecycleAction(formData: FormData) {

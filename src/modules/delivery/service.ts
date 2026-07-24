@@ -91,6 +91,19 @@ async function downloadVersion(
   return content;
 }
 
+async function assertTemplateLegallyApproved(
+  admin: SupabaseClient,
+  templateId: string,
+) {
+  const template = await admin.from("contract_templates")
+    .select("legal_approval_status")
+    .eq("id", templateId)
+    .single();
+  if (template.error || template.data?.legal_approval_status !== "approved") {
+    throw new Error("TEMPLATE_CUSTOMER_APPROVAL_REQUIRED");
+  }
+}
+
 export async function reviewContractVersion(input: {
   contractVersionId: string;
   decision: ReviewDecision;
@@ -143,6 +156,7 @@ export async function createDeliveryDraft(input: {
     current.admin,
     input.contractVersionId,
   );
+  await assertTemplateLegallyApproved(current.admin, version.template_id);
   const review = await current.admin.from("contract_version_reviews")
     .select("reviewer_id,decision,version_checksum")
     .eq("contract_version_id", version.id)
@@ -327,6 +341,7 @@ export async function sendDeliveryDraft(
     current.admin,
     draft.data.contract_version_id,
   );
+  await assertTemplateLegallyApproved(current.admin, version.template_id);
   const review = await current.admin.from("contract_version_reviews")
     .select("decision,version_checksum")
     .eq("contract_version_id", version.id).maybeSingle();

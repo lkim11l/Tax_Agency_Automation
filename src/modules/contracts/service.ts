@@ -18,6 +18,11 @@ import {
   type TemplateValidationReport,
 } from "./docx";
 import { mapContractValues } from "./mapping";
+import {
+  classifyTemplateDatabaseError,
+  normalizeDocxFilename,
+  TemplateUploadError,
+} from "@/modules/templates/upload-errors";
 
 type Execution = { actorId: string; role: "admin" | "specialist"; admin: SupabaseClient };
 
@@ -34,7 +39,7 @@ function checksum(content: Buffer) {
 function safeFilename(value: string) {
   return value
     .normalize("NFKC")
-    .replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]+/gu, "-")
+    .replace(/[^\p{L}\p{N}._-]+/gu, "-")
     .replace(/^[.-]+|[.-]+$/gu, "")
     .slice(0, 180) || "contract.docx";
 }
@@ -72,12 +77,17 @@ export async function uploadTemplateVersion(input: {
   filename: string;
   mimeType: string;
   content: Buffer;
+  operationId?: string;
 }, execution?: Execution) {
   const context = await executionContext(execution);
-  if (context.role !== "admin") throw new Error("Administrator access is required.");
+  const operationId = input.operationId ?? randomUUID();
+  if (context.role !== "admin") {
+    throw new TemplateUploadError("TEMPLATE_RLS_DENIED");
+  }
+  const filename = normalizeDocxFilename(input.filename);
   const report = validateDocxTemplate({
     content: input.content,
-    mimeType: input.mimeType,
+    mimeType: DOCX_MIME,
     requiredPlaceholders: input.requiredPlaceholders,
   });
   const unsafeReport = report.errors.some((code) =>
@@ -91,18 +101,31 @@ export async function uploadTemplateVersion(input: {
     /signature|archive|path|expansion|ZIP/iu.test(code),
   );
   if (unsafeReport) {
-    throw new Error(`Unsafe DOCX template rejected: ${report.errors.join(",")}`);
+    throw new TemplateUploadError("TEMPLATE_VALIDATION_FAILED");
   }
   const digest = checksum(input.content);
   const templateId = randomUUID();
-  const storagePath = `templates/${input.code}/${input.version}/${templateId}/${safeFilename(input.filename)}`;
+  const storagePath = `templates/${input.code}/${input.version}/${templateId}/${safeFilename(filename)}`;
   const upload = await context.admin.storage
     .from(CONTRACT_BUCKET)
     .upload(storagePath, input.content, {
       contentType: DOCX_MIME,
       upsert: false,
     });
-  if (upload.error) throw new Error("Template Storage upload failed.");
+  if (upload.error) {
+    console.error(JSON.stringify({
+      operation: "template.upload",
+      operation_id: operationId,
+      safe_code: "TEMPLATE_STORAGE_UPLOAD_FAILED",
+      supabase_code: upload.error.name ?? null,
+      http_status: null,
+      rollback: "not_required",
+    }));
+    throw new TemplateUploadError("TEMPLATE_STORAGE_UPLOAD_FAILED", {
+      supabaseCode: upload.error.name,
+      rollback: "not_required",
+    });
+  }
   try {
     const created = await context.admin.from("contract_templates").insert({
       id: templateId,
@@ -114,7 +137,7 @@ export async function uploadTemplateVersion(input: {
       status: report.valid ? "awaiting_approval" : "draft",
       storage_path: storagePath,
       checksum: digest,
-      original_filename: safeFilename(input.filename),
+      original_filename: safeFilename(filename),
       mime_type: DOCX_MIME,
       required_rule_set: input.requiredRuleSet,
       placeholder_schema_version: PLACEHOLDER_SCHEMA_VERSION,
@@ -124,7 +147,7 @@ export async function uploadTemplateVersion(input: {
       is_active: false,
       created_by: context.actorId,
     });
-    if (created.error) throw new Error("Template metadata persistence failed.");
+    if (created.error) throw classifyTemplateDatabaseError(created.error);
     await audit(context.admin, {
       actorId: context.actorId,
       entityType: "contract_template",
@@ -157,9 +180,34 @@ export async function uploadTemplateVersion(input: {
     });
     return { templateId, report };
   } catch (error) {
-    await context.admin.from("contract_templates").delete().eq("id", templateId);
-    await context.admin.storage.from(CONTRACT_BUCKET).remove([storagePath]);
-    throw error;
+    const [metadataRollback, storageRollback] = await Promise.all([
+      context.admin.from("contract_templates").delete().eq("id", templateId),
+      context.admin.storage.from(CONTRACT_BUCKET).remove([storagePath]),
+    ]);
+    const rollbackFailed = Boolean(metadataRollback.error || storageRollback.error);
+    const classified = error instanceof TemplateUploadError
+      ? error
+      : new TemplateUploadError("TEMPLATE_DB_INSERT_FAILED");
+    console.error(JSON.stringify({
+      operation: "template.upload",
+      operation_id: operationId,
+      safe_code: rollbackFailed ? "TEMPLATE_ROLLBACK_FAILED" : classified.safeCode,
+      supabase_code: classified.diagnostic.supabaseCode ?? null,
+      table: classified.diagnostic.table ?? "contract_templates",
+      constraint: classified.diagnostic.constraint ?? null,
+      http_status: classified.diagnostic.httpStatus ?? null,
+      rollback: rollbackFailed ? "failed" : "completed",
+    }));
+    if (rollbackFailed) {
+      throw new TemplateUploadError("TEMPLATE_ROLLBACK_FAILED", {
+        ...classified.diagnostic,
+        rollback: "failed",
+      });
+    }
+    throw new TemplateUploadError(classified.safeCode, {
+      ...classified.diagnostic,
+      rollback: "completed",
+    });
   }
 }
 
