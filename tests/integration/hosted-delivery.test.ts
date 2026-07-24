@@ -54,6 +54,53 @@ describe.sequential("hosted Supabase Phase 7 delivery security", () => {
     ).limit(1)).error).toBeNull();
   });
 
+  it("uses a schema-compatible delivery draft alias and physical order column", async () => {
+    const result = await service
+      .from("contract_delivery_drafts")
+      .select("id,draft_version:version,previous_draft_id,contract_version_id")
+      .order("version", { ascending: false })
+      .limit(10);
+
+    expect(result.error).toBeNull();
+    for (const row of result.data ?? []) {
+      expect(row.draft_version).toBeGreaterThanOrEqual(1);
+      expect(row.previous_draft_id === null || typeof row.previous_draft_id === "string")
+        .toBe(true);
+    }
+  });
+
+  it("passes the production schema contract for Phase 4 through Phase 8 tables", async () => {
+    const contract = await service.rpc("get_production_schema_contract");
+
+    expect(contract.error).toBeNull();
+    expect(contract.data?.length).toBeGreaterThan(0);
+    expect(contract.data?.filter((item: { is_present: boolean }) => !item.is_present))
+      .toEqual([]);
+  });
+
+  it("loads the newly ingested production incident application without delivery rows", async () => {
+    const applicationId = "86f02c21-2813-437d-b973-f45c94f0956c";
+    const application = await service
+      .from("applications")
+      .select("id,application_number,source")
+      .eq("id", applicationId)
+      .maybeSingle();
+    expect(application.error).toBeNull();
+    expect(application.data).toEqual({
+      id: applicationId,
+      application_number: "REQ-2026-000273",
+      source: "email",
+    });
+
+    const delivery = await service
+      .from("contract_delivery_drafts")
+      .select("id,draft_version:version")
+      .eq("application_id", applicationId)
+      .order("version", { ascending: false });
+    expect(delivery.error).toBeNull();
+    expect(delivery.data).toEqual([]);
+  });
+
   it("allows active reads but denies anonymous and inactive users", async () => {
     for (const table of [
       "contract_version_reviews",

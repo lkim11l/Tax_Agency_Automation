@@ -34,6 +34,22 @@ business features.
 - [x] Deploy the code to Vercel and pass the production acceptance smoke.
 - [x] Record post-deployment performance measurements and close the sprint.
 
+## Production defect — delivery schema alignment
+
+- [x] Reproduce the `contract_delivery_drafts.draft_version` failure for
+  `REQ-2026-000273` without changing the application.
+- [x] Compare Phase 7 migrations 012–014, later migrations, code references and
+  the hosted `information_schema`.
+- [x] Confirm `version integer not null` is the canonical persisted column and
+  `draft_version` is only the application DTO alias.
+- [x] Correct delivery ordering to use the physical `version` column.
+- [x] Keep missing drafts as an empty state and isolate delivery query failures
+  to the delivery block with safe code `DELIVERY_SCHEMA_MISMATCH`.
+- [x] Add and apply a service-only production schema contract for delivery,
+  clarification, contracts, completeness and extraction tables.
+- [x] Add unit, rendering and hosted schema/query regression tests.
+- [ ] Deploy the fix and verify the exact production application detail route.
+
 ## Phase 1
 
 - [x] Preserve Phase 0 and confirm a clean repository.

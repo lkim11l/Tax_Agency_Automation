@@ -5,6 +5,7 @@ import {
   sendDeliveryDraftAction,
   updateDeliveryDraftAction,
 } from "@/modules/delivery/actions";
+import type { DeliveryStateErrorCode } from "@/modules/delivery/repository";
 
 type Version = {
   id: string;
@@ -55,15 +56,31 @@ export function ContractDeliveryPanel({
   reviews,
   drafts,
   attempts,
+  errorCode,
+  locale,
 }: {
   applicationId: string;
   versions: Version[];
   reviews: Review[];
   drafts: Draft[];
   attempts: Attempt[];
+  errorCode: DeliveryStateErrorCode | null;
+  locale: "ru" | "en";
 }) {
   return (
     <div className="stack section-gap">
+      {errorCode ? (
+        <p className="alert alert-error" role="alert">
+          {locale === "ru"
+            ? errorCode === "DELIVERY_SCHEMA_MISMATCH"
+              ? "Раздел доставки временно недоступен из-за несовместимости схемы данных. Остальные данные заявки доступны."
+              : "Не удалось загрузить раздел доставки. Остальные данные заявки доступны."
+            : errorCode === "DELIVERY_SCHEMA_MISMATCH"
+              ? "Delivery is temporarily unavailable because of a data schema mismatch. The rest of the application is available."
+              : "Unable to load delivery. The rest of the application is available."}
+        </p>
+      ) : null}
+
       {versions.map((version) => {
         const review = reviews.find((item) => item.contract_version_id === version.id);
         return (
@@ -122,6 +139,14 @@ export function ContractDeliveryPanel({
           </article>
         );
       })}
+
+      {drafts.length === 0 && !errorCode ? (
+        <p className="muted">
+          {locale === "ru"
+            ? "Черновик отправки ещё не создан."
+            : "No delivery draft has been created."}
+        </p>
+      ) : null}
 
       {drafts.map((draft) => {
         const draftAttempts = attempts.filter((item) => item.delivery_draft_id === draft.id);

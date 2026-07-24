@@ -95,6 +95,32 @@ async function main() {
     const mobile = await measure(path, session.header, true);
     if (mobile.status !== 200) throw new Error(`Mobile smoke failed on ${path}.`);
   }
+  const applicationId = process.env.PRESENTATION_APPLICATION_ID?.trim();
+  if (applicationId) {
+    const detail = await measure(`/applications/${encodeURIComponent(applicationId)}`, session.header);
+    if (detail.status !== 200) {
+      throw new Error(`Application detail returned ${detail.status}.`);
+    }
+    if (
+      detail.body.includes("Unable to load delivery state") ||
+      detail.body.includes("DELIVERY_SCHEMA_MISMATCH")
+    ) {
+      throw new Error("Application detail still exposes a delivery schema failure.");
+    }
+    measurements.push({
+      path: detail.path,
+      cold: {
+        ttfbMs: detail.ttfbMs,
+        totalMs: detail.totalMs,
+        payloadBytes: detail.payloadBytes,
+      },
+      warm: {
+        ttfbMs: detail.ttfbMs,
+        totalMs: detail.totalMs,
+        payloadBytes: detail.payloadBytes,
+      },
+    });
+  }
   const templates = await measure("/templates", session.header);
   if (acceptance) {
     for (const label of [

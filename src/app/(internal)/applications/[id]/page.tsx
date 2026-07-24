@@ -226,6 +226,8 @@ export default async function ApplicationDetailPage({
           reviews={deliveryState.reviews}
           drafts={deliveryState.drafts}
           attempts={deliveryState.attempts}
+          errorCode={deliveryState.errorCode}
+          locale={locale}
         />
       </section>
 

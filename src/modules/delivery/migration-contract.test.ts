@@ -15,6 +15,10 @@ const hardening = readFileSync(
   resolve("supabase/migrations/202607230014_phase7_version_immutability_hardening.sql"),
   "utf8",
 );
+const schemaContract = readFileSync(
+  resolve("supabase/migrations/202607240005_delivery_schema_contract.sql"),
+  "utf8",
+);
 
 describe("phase 7 migration security contract", () => {
   it("stores checksum-bound reviews, versioned drafts, attempts and attachments", () => {
@@ -57,6 +61,25 @@ describe("phase 7 migration security contract", () => {
     expect(statusMigration).toContain("delivered");
     expect(`${statusMigration}\n${migration}\n${hardening}`).not.toMatch(
       /\b(drop\s+table|truncate|delete\s+from)\b/iu,
+    );
+  });
+
+  it("keeps version as the canonical persisted draft column", () => {
+    expect(migration).toMatch(
+      /create table public\.contract_delivery_drafts[\s\S]*\bversion integer not null/iu,
+    );
+    expect(migration).not.toMatch(/\bdraft_version\s+integer/iu);
+    expect(schemaContract).toContain(
+      "('contract_delivery_drafts', 'version')",
+    );
+    expect(schemaContract).not.toContain(
+      "('contract_delivery_drafts', 'draft_version')",
+    );
+    expect(schemaContract).toContain("security definer");
+    expect(schemaContract).toContain("set search_path = ''");
+    expect(schemaContract).toContain("to service_role");
+    expect(schemaContract).not.toMatch(
+      /\b(drop\s+table|drop\s+column|truncate|delete\s+from)\b/iu,
     );
   });
 });

@@ -379,6 +379,18 @@ npm run test:integration
 npm run test:contract-delivery:live
 ```
 
+The persisted delivery-draft version column is `version`; server responses
+expose it as `draft_version`. The hosted integration suite calls the
+service-only `get_production_schema_contract` function and verifies required
+columns for delivery and adjacent workflows. To include one existing
+application detail in the production smoke without changing it:
+
+```powershell
+$env:PRESENTATION_APPLICATION_ID="APPLICATION_UUID"
+npm run test:presentation:smoke
+Remove-Item Env:PRESENTATION_APPLICATION_ID
+```
+
 The live command never uses customer documents. If it reports
 `manual_receipt_verification_required`, follow the exact subject/address/file
 instruction and rerun it; success requires the received DOCX SHA-256 to match.

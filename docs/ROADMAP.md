@@ -371,3 +371,9 @@ business workflow scope.
 Current status: implementation and non-destructive migration complete.
 Destructive cleanup, template upload and final production acceptance remain
 pending explicit confirmation.
+
+Production defect follow-up: the Phase 7 database keeps `version` as the
+canonical delivery-draft column. A repository query incorrectly ordered by its
+DTO alias `draft_version`; the fix orders by `version`, preserves the alias at
+the application boundary, isolates delivery failures to that section, and adds
+a service-only hosted schema contract to detect future required-column drift.
