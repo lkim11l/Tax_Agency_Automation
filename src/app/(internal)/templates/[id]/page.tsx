@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Feedback } from "@/components/feedback";
 import { getOperationalContext } from "@/lib/auth/context";
 import { getLocale, localizeStatus, localizeTemplateType } from "@/lib/i18n";
+import { getTemplateRuntimeStatus } from "@/modules/contracts/service";
 import { templateLifecycleAction } from "@/modules/templates/actions";
 import { getTemplate } from "@/modules/templates/repository";
 
@@ -21,6 +22,9 @@ export default async function TemplateDetailPage({ params, searchParams }: {
   if (!template) notFound();
   const report = template.validation_report ?? {};
   const ru = locale === "ru";
+  // Read-only: re-downloads the actual Storage file and re-runs the current
+  // validateDocxTemplate against it — never trusts status=approved alone.
+  const runtimeStatus = await getTemplateRuntimeStatus(id);
   return (
     <>
       <div className="page-heading">
@@ -47,6 +51,35 @@ export default async function TemplateDetailPage({ params, searchParams }: {
               : "Pending customer approval. Delivery to a real client is blocked."}
           </p>
         ) : null}
+        <h3>{ru ? "Проверка при генерации (в реальном времени)" : "Generation-time check (live)"}</h3>
+        <p className="muted">
+          {ru
+            ? "Файл заново скачивается из Storage и проверяется текущей логикой перед каждым формированием договора — статус «Одобрен» сам по себе недостаточен."
+            : "The file is re-downloaded from Storage and re-checked with the current logic before every generation — status=approved alone is not enough."}
+        </p>
+        {runtimeStatus.ok ? (
+          <p className="alert alert-success">{ru ? "Шаблон актуален и проходит проверку." : "Template is current and passes the check."}</p>
+        ) : (
+          <div className="alert alert-error">
+            <strong>{ru ? "Требуется новая версия" : "New version required"}</strong>
+            <p>
+              {ru
+                ? "Этот шаблон нельзя использовать для формирования договора, пока администратор не загрузит и не одобрит новую версию."
+                : "This template cannot be used for generation until an administrator uploads and approves a new version."}
+            </p>
+            <ul>{runtimeStatus.reasons.map((reason) => <li key={reason}><code>{reason}</code></li>)}</ul>
+          </div>
+        )}
+        <dl className="summary-grid">
+          <div>
+            <dt>{ru ? "Текущая версия схемы плейсхолдеров" : "Current placeholder schema version"}</dt>
+            <dd className="summary-text"><code>{runtimeStatus.currentPlaceholderSchemaVersion ?? "—"}</code></dd>
+          </div>
+          <div>
+            <dt>{ru ? "Требуемая версия схемы" : "Required schema version"}</dt>
+            <dd className="summary-text"><code>{runtimeStatus.requiredPlaceholderSchemaVersion}</code></dd>
+          </div>
+        </dl>
         <h3>{ru ? "Отчёт проверки" : "Validation report"}</h3>
         <p>{report.valid ? (ru ? "Проверка пройдена" : "Passed") : (ru ? "Есть блокирующие ошибки" : "Blocking errors present")}</p>
         {report.errors?.length ? <ul>{report.errors.map((item) => <li key={item}>{item}</li>)}</ul> : null}

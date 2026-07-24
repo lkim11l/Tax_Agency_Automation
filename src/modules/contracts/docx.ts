@@ -18,6 +18,15 @@ export type TemplateValidationReport = {
 const placeholderPattern = /\{\{([a-z][a-z0-9_]*)\}\}/gu;
 const xmlPartsPattern = /^word\/(document|header\d+|footer\d+)\.xml$/u;
 
+// A template carrying its own mock/editorial markup must never become
+// approvable for production use — but the markup itself is never stripped
+// (it is the safety net that keeps a mock document from being mistaken for
+// a real one), so this only ever affects `valid`, not the template bytes.
+const MOCK_MARKER_PATTERN = /\bMOCK\b|НЕ\s+ДЛЯ\s+ПОДПИСАНИЯ/iu;
+const TEST_REQUISITE_PATTERN =
+  /исполнитель-мок|mock-банк|тестовый\s+банк|тестовый\s+контрагент/iu;
+const HIGHLIGHT_MARKUP_PATTERN = /<w:highlight\b[^>]*w:val="(?!none)[^"]+"/iu;
+
 function decodeXml(value: string) {
   return value
     .replaceAll("&lt;", "<")
@@ -117,6 +126,9 @@ export function validateDocxTemplate(input: {
     const outsideText = xml.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/gu, "");
     if (placeholderPattern.test(outsideText)) errors.push("PLACEHOLDER_UNSUPPORTED_XML");
     placeholderPattern.lastIndex = 0;
+    if (MOCK_MARKER_PATTERN.test(joined)) errors.push("MOCK_MARKER_PRESENT");
+    if (TEST_REQUISITE_PATTERN.test(joined)) errors.push("TEST_REQUISITES_PRESENT");
+    if (HIGHLIGHT_MARKUP_PATTERN.test(xml)) errors.push("TEMPLATE_HIGHLIGHT_MARKUP_PRESENT");
   }
   const known = new Set<string>(contractPlaceholders);
   const unknown = [...new Set(occurrences.filter((name) => !known.has(name)))];
@@ -140,6 +152,20 @@ export function validateDocxTemplate(input: {
   };
 }
 
+const TERMINAL_PUNCTUATION = new Set([".", ",", ";", ":", "!", "?"]);
+
+// A value that already ends in terminal punctuation (". что-то." style text
+// extracted verbatim from the client) must not get a second, template-owned
+// punctuation mark glued right after it ("...рекомендаций.."). Only the
+// value's own trailing mark is dropped — never the template's — so the
+// template keeps full control of its own sentence punctuation.
+function dedupeTrailingPunctuation(value: string, nextChar: string | undefined) {
+  if (!nextChar || !TERMINAL_PUNCTUATION.has(nextChar)) return value;
+  const trimmed = value.replace(/\s+$/u, "");
+  if (!trimmed || !TERMINAL_PUNCTUATION.has(trimmed.slice(-1))) return value;
+  return trimmed.slice(0, -1);
+}
+
 function replacePart(
   xml: string,
   values: Partial<Record<ContractPlaceholder, string>>,
@@ -155,10 +181,11 @@ function replacePart(
     }))
     .reverse();
   for (const replacement of replacements) {
-    const value = values[replacement.name];
-    if (value === undefined || value === null || value === "") {
+    const rawValue = values[replacement.name];
+    if (rawValue === undefined || rawValue === null || rawValue === "") {
       throw new Error(`PLACEHOLDER_VALUE_MISSING:${replacement.name}`);
     }
+    const value = dedupeTrailingPunctuation(rawValue, joined[replacement.end]);
     const offsets: number[] = [];
     let total = 0;
     for (const node of nodes) {
@@ -189,6 +216,21 @@ function replacePart(
   );
 }
 
+// Removes character highlighting from the client-facing output, both for
+// substituted placeholder runs (which inherit whatever run formatting the
+// template author left on the placeholder) and for any yellow highlight the
+// template itself carries as editorial "please review" markup — neither
+// belongs in a document handed to a client. Table/cell shading (`w:tcPr`,
+// `w:tblPr`, `w:trPr`) is structural formatting, not highlighting, and is
+// deliberately left untouched.
+function stripHighlightMarkup(xml: string) {
+  const withoutHighlight = xml.replace(/<w:highlight\b[^>]*\/>/gu, "");
+  return withoutHighlight.replace(
+    /<w:rPr>([\s\S]*?)<\/w:rPr>/gu,
+    (_match, inner: string) => `<w:rPr>${inner.replace(/<w:shd\b[^>]*\/>/gu, "")}</w:rPr>`,
+  );
+}
+
 export function renderDocxTemplate(input: {
   content: Buffer;
   values: Record<ContractPlaceholder, string>;
@@ -196,7 +238,7 @@ export function renderDocxTemplate(input: {
   const archive = safeArchive(input.content);
   for (const [name, bytes] of Object.entries(archive)) {
     if (!xmlPartsPattern.test(name)) continue;
-    const rendered = replacePart(strFromU8(bytes), input.values);
+    const rendered = stripHighlightMarkup(replacePart(strFromU8(bytes), input.values));
     archive[name] = strToU8(rendered);
   }
   const output = Buffer.from(zipSync(archive, { level: 6 }));

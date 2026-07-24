@@ -23,6 +23,14 @@ const STALE_FINGERPRINT_REASONS = new Set(["SOURCE_FINGERPRINT_MISMATCH", "RULE_
 // messages) to the user — map every reason to a safe Russian description and
 // log the technical detail server-side only.
 function safeBlockingMessage(reasons: string[]): string {
+  // Checked first and on its own: a template that failed the runtime
+  // content re-verification (mock markers, highlighting, missing mandatory
+  // placeholders, checksum mismatch, outdated schema) is a security
+  // finding, not an ordinary "not ready yet" state — status=approved and
+  // is_active=true never override this.
+  if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
+    return "Выбранный шаблон договора больше не соответствует требованиям безопасности. Администратору необходимо загрузить и одобрить новую версию шаблона.";
+  }
   if (reasons.some((reason) => STALE_FINGERPRINT_REASONS.has(reason))) {
     return "Данные заявки изменились или были проверены по другому шаблону. Комплектность будет пересчитана автоматически.";
   }
@@ -48,6 +56,9 @@ function safeGenerationErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   if (message.startsWith("GENERATION_BLOCKED:")) {
     const reasons = message.slice("GENERATION_BLOCKED:".length).split(",");
+    if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
+      return safeBlockingMessage(reasons);
+    }
     if (reasons.some((reason) => STALE_FINGERPRINT_REASONS.has(reason))) {
       // loadGenerationSource already tried an automatic recalculation before
       // returning this — if the mismatch survived that, it needs a human.

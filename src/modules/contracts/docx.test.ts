@@ -99,6 +99,101 @@ describe("DOCX contract template security and rendering", () => {
     }).valid).toBe(false);
   });
 
+  it("does not double up punctuation when the value already ends with it", () => {
+    const archive = unzipSync(createSyntheticContractTemplate());
+    archive["word/document.xml"] = strToU8(
+      strFromU8(archive["word/document.xml"]).replace(
+        "{{client_kpp}}",
+        "{{contract_subject}}.",
+      ),
+    );
+    const output = renderDocxTemplate({
+      content: Buffer.from(zipSync(archive)),
+      values: { ...values, contract_subject: "Оказание услуг." },
+    });
+    const rendered = strFromU8(unzipSync(output)["word/document.xml"]);
+    expect(rendered).toContain("Оказание услуг.");
+    expect(rendered).not.toContain("Оказание услуг..");
+  });
+
+  it("leaves punctuation alone when the value does not end with a terminal mark", () => {
+    const archive = unzipSync(createSyntheticContractTemplate());
+    archive["word/document.xml"] = strToU8(
+      strFromU8(archive["word/document.xml"]).replace(
+        "{{client_kpp}}",
+        "{{contract_subject}}.",
+      ),
+    );
+    const output = renderDocxTemplate({
+      content: Buffer.from(zipSync(archive)),
+      values: { ...values, contract_subject: "Оказание услуг" },
+    });
+    const rendered = strFromU8(unzipSync(output)["word/document.xml"]);
+    expect(rendered).toContain("Оказание услуг.");
+  });
+
+  it("strips highlighting from a substituted placeholder run", () => {
+    const archive = unzipSync(createSyntheticContractTemplate());
+    archive["word/document.xml"] = strToU8(
+      strFromU8(archive["word/document.xml"]).replace(
+        "{{client_kpp}}",
+        '</w:t></w:r><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t>{{client_kpp}}',
+      ),
+    );
+    const output = renderDocxTemplate({
+      content: Buffer.from(zipSync(archive)),
+      values,
+    });
+    const rendered = strFromU8(unzipSync(output)["word/document.xml"]);
+    expect(rendered).not.toContain("<w:highlight");
+    expect(rendered).toContain(`value-client_kpp`);
+  });
+
+  it("strips highlighting left as editorial markup on static (non-placeholder) template text", () => {
+    const archive = unzipSync(createSyntheticContractTemplate());
+    archive["word/document.xml"] = strToU8(
+      strFromU8(archive["word/document.xml"]).replace(
+        "</w:body>",
+        '<w:p><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t>один месяц</w:t></w:r></w:p></w:body>',
+      ),
+    );
+    const output = renderDocxTemplate({
+      content: Buffer.from(zipSync(archive)),
+      values,
+    });
+    const rendered = strFromU8(unzipSync(output)["word/document.xml"]);
+    expect(rendered).not.toContain("<w:highlight");
+    expect(rendered).toContain("один месяц");
+  });
+
+  it("blocks approval-eligible validation for a template with mock markers or highlighting", () => {
+    const archive = unzipSync(createSyntheticContractTemplate());
+    archive["word/document.xml"] = strToU8(
+      strFromU8(archive["word/document.xml"]).replace(
+        "</w:body>",
+        '<w:p><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr>'
+          + "<w:t>MOCK-ШАБЛОН. НЕ ДЛЯ ПОДПИСАНИЯ</w:t></w:r></w:p></w:body>",
+      ),
+    );
+    const content = Buffer.from(zipSync(archive));
+    const report = validateDocxTemplate({
+      content,
+      mimeType: DOCX_MIME,
+      requiredPlaceholders: [],
+    });
+    expect(report.valid).toBe(false);
+    expect(report.errors).toContain("MOCK_MARKER_PRESENT");
+    expect(report.errors).toContain("TEMPLATE_HIGHLIGHT_MARKUP_PRESENT");
+
+    // The marker itself must never be programmatically stripped — rendering
+    // (a separate, unrelated operation from approval) still preserves it
+    // verbatim so a rendered mock document still visibly screams "mock".
+    const rendered = renderDocxTemplate({ content, values });
+    const renderedXml = strFromU8(unzipSync(rendered)["word/document.xml"]);
+    expect(renderedXml).toContain("MOCK-ШАБЛОН. НЕ ДЛЯ ПОДПИСАНИЯ");
+    expect(renderedXml).not.toContain("<w:highlight");
+  });
+
   it("blocks XML entities and refuses null rendering values", () => {
     const entityArchive = unzipSync(createSyntheticContractTemplate());
     entityArchive["word/document.xml"] = strToU8(

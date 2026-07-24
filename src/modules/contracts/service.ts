@@ -16,6 +16,7 @@ import { recalculateCompleteness } from "@/modules/clarification/service";
 import {
   CONTRACT_BUCKET,
   DOCX_MIME,
+  MANDATORY_PLACEHOLDERS,
   MAPPING_VERSION,
   PLACEHOLDER_SCHEMA_VERSION,
 } from "./constants";
@@ -92,10 +93,17 @@ export async function uploadTemplateVersion(input: {
     throw new TemplateUploadError("TEMPLATE_RLS_DENIED");
   }
   const filename = normalizeDocxFilename(input.filename);
+  // Mandatory placeholders are never left to the uploading admin's
+  // discretion — union them in regardless of what was selected in the
+  // upload form, so a template missing the genitive preamble fields can
+  // never validate as ready for approval.
+  const requiredPlaceholders = [
+    ...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS]),
+  ];
   const report = validateDocxTemplate({
     content: input.content,
     mimeType: DOCX_MIME,
-    requiredPlaceholders: input.requiredPlaceholders,
+    requiredPlaceholders,
   });
   const unsafeReport = report.errors.some((code) =>
     [
@@ -148,7 +156,7 @@ export async function uploadTemplateVersion(input: {
       mime_type: DOCX_MIME,
       required_rule_set: input.requiredRuleSet,
       placeholder_schema_version: PLACEHOLDER_SCHEMA_VERSION,
-      required_fields: input.requiredPlaceholders,
+      required_fields: requiredPlaceholders,
       variable_schema: { placeholders: report.placeholders },
       validation_report: report,
       is_active: false,
@@ -266,6 +274,91 @@ export async function setTemplateLifecycle(
   });
 }
 
+export type TemplateRuntimeCheck = {
+  ok: boolean;
+  reasons: string[];
+  currentPlaceholderSchemaVersion: string | null;
+  requiredPlaceholderSchemaVersion: string;
+};
+
+type TemplateRow = {
+  storage_path: string | null;
+  checksum: string | null;
+  mime_type: string | null;
+  required_fields: unknown;
+  placeholder_schema_version: string | null;
+};
+
+// The DB row (status='approved', is_active=true, validation_report.valid,
+// placeholder_schema_version) is never trusted on its own — it only proves
+// what was true when the template was last approved, not what is in
+// Storage right now. Every generation attempt re-downloads the actual bytes
+// and re-runs the CURRENT validateDocxTemplate against them, so a template
+// approved before a safety check existed (mock markers, highlighting,
+// missing mandatory placeholders) — or one whose stored file was somehow
+// swapped after approval — is caught here regardless of its DB status.
+export async function reverifyTemplateContent(
+  admin: SupabaseClient,
+  template: TemplateRow,
+): Promise<TemplateRuntimeCheck> {
+  const requiredPlaceholderSchemaVersion = PLACEHOLDER_SCHEMA_VERSION;
+  const currentPlaceholderSchemaVersion = template.placeholder_schema_version ?? null;
+  if (!template.storage_path || !template.checksum) {
+    return {
+      ok: false,
+      reasons: ["TEMPLATE_STORAGE_METADATA_MISSING"],
+      currentPlaceholderSchemaVersion,
+      requiredPlaceholderSchemaVersion,
+    };
+  }
+  const download = await admin.storage.from(CONTRACT_BUCKET).download(template.storage_path);
+  if (download.error || !download.data) {
+    return {
+      ok: false,
+      reasons: ["TEMPLATE_DOWNLOAD_FAILED"],
+      currentPlaceholderSchemaVersion,
+      requiredPlaceholderSchemaVersion,
+    };
+  }
+  const content = Buffer.from(await download.data.arrayBuffer());
+  const reasons: string[] = [];
+  if (checksum(content) !== template.checksum) reasons.push("CHECKSUM_MISMATCH");
+  const requiredPlaceholders = [
+    ...new Set([
+      ...(Array.isArray(template.required_fields) ? (template.required_fields as string[]) : []),
+      ...MANDATORY_PLACEHOLDERS,
+    ]),
+  ];
+  const report = validateDocxTemplate({
+    content,
+    mimeType: template.mime_type ?? DOCX_MIME,
+    requiredPlaceholders,
+  });
+  reasons.push(...report.errors);
+  if (currentPlaceholderSchemaVersion !== requiredPlaceholderSchemaVersion) {
+    reasons.push("PLACEHOLDER_SCHEMA_OUTDATED");
+  }
+  return {
+    ok: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+    currentPlaceholderSchemaVersion,
+    requiredPlaceholderSchemaVersion,
+  };
+}
+
+// Read-only admin diagnostic: does NOT mutate the template or Supabase in
+// any way. Safe to call from a template list/detail page.
+export async function getTemplateRuntimeStatus(templateId: string, execution?: Execution) {
+  const context = await executionContext(execution);
+  const template = await context.admin
+    .from("contract_templates")
+    .select("storage_path,checksum,mime_type,required_fields,placeholder_schema_version")
+    .eq("id", templateId)
+    .single();
+  if (template.error || !template.data) throw new Error("Template not found.");
+  return reverifyTemplateContent(context.admin, template.data as TemplateRow);
+}
+
 async function loadGenerationSource(
   admin: SupabaseClient,
   applicationId: string,
@@ -278,6 +371,17 @@ async function loadGenerationSource(
   ]);
   if (application.error || !application.data || template.error || !template.data) {
     throw new Error("Unable to load contract generation source.");
+  }
+
+  const runtimeCheck = await reverifyTemplateContent(admin, template.data as TemplateRow);
+  if (!runtimeCheck.ok) {
+    console.error(JSON.stringify({
+      operation: "contract.template_runtime_revalidation_failed",
+      template_id: templateId,
+      reasons: runtimeCheck.reasons,
+      current_placeholder_schema_version: runtimeCheck.currentPlaceholderSchemaVersion,
+      required_placeholder_schema_version: runtimeCheck.requiredPlaceholderSchemaVersion,
+    }));
   }
 
   const ruleSetId = template.data.required_rule_set as string;
@@ -364,6 +468,10 @@ async function loadGenerationSource(
   ) {
     blocking.push("TEMPLATE_VALIDATION_INVALID");
   }
+  // status='approved' and is_active=true are never sufficient on their own
+  // — a template approved before this check existed (or one whose Storage
+  // content was altered afterward) is blocked here regardless.
+  if (!runtimeCheck.ok) blocking.push("TEMPLATE_SECURITY_REVALIDATION_FAILED");
   if (!completenessRow.is_ready || completenessRow.is_blocking) blocking.push("APPLICATION_NOT_READY");
   if ((completenessBlockers.data?.length ?? 0) > 0) {
     blocking.push("COMPLETENESS_FIELD_BLOCKED");

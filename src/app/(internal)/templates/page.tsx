@@ -11,7 +11,7 @@ import {
   localizeTemplateType,
 } from "@/lib/i18n";
 import { completenessRuleSets } from "@/modules/clarification/rules";
-import { contractPlaceholders } from "@/modules/contracts/constants";
+import { contractPlaceholders, PLACEHOLDER_SCHEMA_VERSION } from "@/modules/contracts/constants";
 import { uploadTemplateAction } from "@/modules/templates/actions";
 import { listTemplates } from "@/modules/templates/repository";
 
@@ -76,11 +76,14 @@ export default async function TemplatesPage({
                 <th>{ru ? "Юридический статус" : "Legal status"}</th>
                 <th>SHA-256</th>
                 <th>{ru ? "Проверка" : "Validation"}</th>
+                <th>{ru ? "Совместимость" : "Compatibility"}</th>
                 <th>{ru ? "Обновлено" : "Updated"}</th>
               </tr>
             </thead>
             <tbody>
-              {templates.map((template) => (
+              {templates.map((template) => {
+                const schemaOutdated = template.placeholder_schema_version !== PLACEHOLDER_SCHEMA_VERSION;
+                return (
                 <tr key={template.id}>
                   <td><Link href={`/templates/${template.id}`}>{template.name}</Link></td>
                   <td>{template.template_type ? localizeTemplateType(template.template_type, locale) : "—"}</td>
@@ -89,9 +92,19 @@ export default async function TemplatesPage({
                   <td>{localizeStatus(template.legal_approval_status, locale)}</td>
                   <td><code>{template.checksum?.slice(0, 12) ?? "—"}</code></td>
                   <td>{template.validation_report?.valid ? (ru ? "Пройдена" : "Passed") : (ru ? "Заблокирован" : "Blocked")}</td>
+                  <td>
+                    {schemaOutdated ? (
+                      <span className="badge badge-failed">
+                        {ru ? "Требуется новая версия" : "New version required"}
+                      </span>
+                    ) : (
+                      <span className="badge badge-approved">{ru ? "Актуален" : "Up to date"}</span>
+                    )}
+                  </td>
                   <td>{formatDateTime(template.updated_at, locale)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
