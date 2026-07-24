@@ -2,12 +2,37 @@
 
 ## Current phase
 
-Phase 8 — Contract registry and reporting (complete)
+Post-MVP presentation readiness and production cleanup (in progress)
 
 ## Sprint goal
 
-Provide a scoped operational registry and deterministic monthly XLSX report
-without starting Phase 9.
+Prepare the deployed MVP for a customer presentation without adding new
+business features.
+
+## Presentation readiness sprint
+
+- [x] Identify the production template-upload failure as duplicate PostgreSQL
+  constraints hidden by generic error handling.
+- [x] Add safe template error codes, structured server diagnostics, rollback
+  reporting, filename normalization, loading state and double-submit protection.
+- [x] Add pending customer legal-approval metadata and block delivery for
+  templates without legal approval.
+- [x] Add application pagination, request-scoped auth/profile memoization,
+  justified indexes and a one-request dashboard summary.
+- [x] Add a real-data operations dashboard and predictable route loading state.
+- [x] Set Russian as the product default and add shared Russian date, amount,
+  status, priority and template-type formatting.
+- [x] Correct Hobby health semantics so manual mailbox mode alone is not degraded.
+- [x] Add guarded production cleanup dry-run/apply commands and an external
+  checksum-protected manifest.
+- [x] Complete cleanup dry-run with explicit markers and preservation rules.
+- [ ] Receive explicit destructive-operation confirmation and apply the guarded
+  cleanup migration and manifest.
+- [ ] Verify zero selected orphaned Storage objects.
+- [ ] Upload and verify the three presentation DOCX templates with
+  `pending_customer_approval`.
+- [ ] Deploy the code to Vercel and pass the production acceptance smoke.
+- [ ] Record post-deployment performance measurements and close the sprint.
 
 ## Phase 1
 

@@ -32,7 +32,10 @@
     "test:contracts:live": "node --env-file=.env.local --import tsx scripts/contracts-live.ts",
     "test:contract-delivery:live": "node --env-file=.env.local --import tsx scripts/contract-delivery-live.ts",
     "test:reports:live": "node --env-file=.env.local --import tsx scripts/reports-live.ts"
-    ,"test:operations:smoke": "node --env-file=.env.local --import tsx scripts/operations-smoke.ts"
+    ,"test:operations:smoke": "node --env-file=.env.local --import tsx scripts/operations-smoke.ts",
+    "production:cleanup-synthetic": "node --env-file=.env.local --import tsx scripts/production-cleanup-synthetic.ts",
+    "production:upload-templates": "node --env-file=.env.local --import tsx scripts/templates-upload-production.ts",
+    "test:presentation:smoke": "node --env-file=.env.local --import tsx scripts/presentation-smoke.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.3",

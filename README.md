@@ -1,4 +1,4 @@
-# Tax Agency Automation
+# Автоматизация договорной работы
 
 Functional MVP for AI-assisted contract workflow automation.
 
@@ -30,8 +30,9 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 through Phase 8 are complete. Phase 9 production-pilot hardening is in
-progress; production deployment and pilot start require owner actions.
+Phase 0 through Phase 9 are deployed. The current authorized post-MVP sprint
+improves presentation readiness, performance and production data hygiene
+without adding business features.
 
 ## Start here
 
@@ -169,6 +170,7 @@ npm run dev
 Open `http://localhost:3000`. Unauthenticated users are redirected to `/login`.
 After signing in, the internal routes are:
 
+- `/dashboard`
 - `/applications`
 - `/applications/new`
 - `/applications/[id]`
@@ -178,6 +180,9 @@ After signing in, the internal routes are:
 - `/settings`
 
 The public health endpoint is `GET /api/health`.
+
+On Vercel Hobby, set `AUTOMATIC_MAILBOX_SYNC_ENABLED=false`. A stale manual
+mailbox run does not make health degraded; real dependency failures still do.
 
 The admin-only operational status page is `/settings`. On Vercel Hobby, an
 administrator starts mailbox synchronization manually from that page; no
@@ -189,6 +194,25 @@ Russian operator steps are documented in `docs/DEPLOYMENT.md`,
 `docs/PILOT_RUNBOOK.md`, `docs/INCIDENT_RESPONSE.md`,
 `docs/BACKUP_RECOVERY.md`, `docs/SECURITY_CHECKLIST.md` and
 `docs/USER_GUIDE_RU.md`.
+
+## Presentation and production maintenance
+
+The template page accepts only safe DOCX files up to 10 MB, normalizes a
+repeated `.docx.docx` suffix, validates the OOXML archive and stores the object
+privately before metadata persistence. New templates default to
+`pending_customer_approval`; delivery remains blocked until legal approval.
+
+```bash
+npm run production:cleanup-synthetic -- --dry-run
+npm run production:cleanup-synthetic -- --apply
+npm run production:upload-templates
+npm run test:presentation:smoke
+```
+
+Cleanup dry-run writes a checksum-protected manifest to the operating-system
+temporary directory outside Git. Apply requires the exact unchanged manifest
+and database-side revalidation of every ID. Never use broad date-based
+deletion. See `docs/PRESENTATION_READINESS.md`.
 
 ## Mail.ru ingestion
 

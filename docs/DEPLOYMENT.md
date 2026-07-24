@@ -35,8 +35,10 @@ background-processing implementation.
    synchronization from `/settings`. Confirm the persisted run and component
    statuses appear on that page.
 
-This repository is not currently linked to a Vercel project, so no production
-URL or domain has been verified.
+The verified production URL is
+`https://tax-agency-automation.vercel.app`. Vercel deploys `main`
+automatically. The Hobby configuration intentionally contains no `crons`
+entry.
 
 ## Hobby runtime behavior
 
@@ -46,6 +48,10 @@ recovers stale claims, retries transient stages, and persists stages, counts,
 audit records, and safe errors. Email ingestion, document parsing, extraction
 and completeness remain idempotent. The job never approves or sends
 clarification or contract messages.
+
+Set `AUTOMATIC_MAILBOX_SYNC_ENABLED=false`. The settings page must display:
+`Автоматическая синхронизация отключена. Запускайте проверку почты вручную.`
+Manual mode is an operating mode, not a degraded dependency state.
 
 ## Upgrade to Pro
 

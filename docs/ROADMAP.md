@@ -347,3 +347,27 @@ Do not implement these until the MVP acceptance gate passes:
 - subscription billing;
 - advanced analytics;
 - mobile app.
+
+---
+
+# Authorized post-MVP sprint — Presentation readiness
+
+## Objective
+
+Prepare the deployed MVP for a customer presentation without adding new
+business workflow scope.
+
+## Acceptance gate
+
+- Template uploads expose safe actionable failures and leave no orphan objects.
+- Three controlled DOCX templates exist with customer legal approval pending.
+- Explicitly marked synthetic production data is removed through a reviewed
+  manifest while profiles and infrastructure are preserved.
+- Russian internal UI, dashboard, pagination, loading and empty states pass.
+- Hobby manual mailbox mode is healthy and remains protected.
+- Lint, typecheck, unit, hosted integration, build, audit and production smoke
+  pass after deployment.
+
+Current status: implementation and non-destructive migration complete.
+Destructive cleanup, template upload and final production acceptance remain
+pending explicit confirmation.

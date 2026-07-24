@@ -354,3 +354,26 @@ while manual operation remains reliable and auditable. Database ownership gives
 manual or future scheduled invocations the same concurrency and idempotency
 boundary. Vercel logs plus the admin status page and persisted job/component
 state provide pilot monitoring without introducing a second monitoring service.
+
+## ADR-020 — Presentation templates, legal approval and guarded cleanup
+
+Status: Accepted
+
+Decision:
+Separate technical DOCX validation from customer legal approval. Every new
+template starts with `legal_approval_status = pending_customer_approval`.
+Creating or sending a delivery draft requires legal status `approved`.
+
+Map Supabase upload failures to stable safe codes. Keep operation ID, safe code,
+database code/constraint/HTTP status and rollback outcome in structured logs
+without document content, user details, keys or stack traces.
+
+Synthetic cleanup is an explicit-ID, two-step maintenance operation. Dry-run
+writes a checksum-protected manifest outside Git. Apply must match the same IDs,
+use documented markers or known integration actors, revalidate every ID in
+PostgreSQL, preserve profiles and infrastructure, and write an aggregate audit.
+
+Reason:
+Technical validity is not legal customer approval. Stable diagnostics are
+actionable without exposing data. Explicit manifests and database revalidation
+prevent broad production deletion.
