@@ -5,6 +5,7 @@ import {
 import { PendingFormButton } from "@/components/pending-form-button";
 import { correctExtractedFieldAction } from "@/modules/extraction/actions";
 import {
+  evidenceReasonRu,
   extractionFieldLabelRu,
   extractionReasonRu,
   reviewStatusLabelsRu,
@@ -81,7 +82,7 @@ export function ExtractionReviewPanel({
   conflicts: Conflict[];
   acceptancePreview: {
     eligible: Array<{ fieldName: string }>;
-    blocked: Array<{ fieldName: string; reason: string }>;
+    blocked: Array<{ fieldName: string; reason: string; evidenceReason?: string | null }>;
   };
   filter: Filter;
   completeness: {
@@ -187,7 +188,9 @@ export function ExtractionReviewPanel({
                       ? "значение отсутствует"
                       : item.reason === "MANUALLY_CONFIRMED"
                         ? "уже подтверждено вручную"
-                        : "требуется проверить источник"}
+                        : item.reason === "SOURCE_REQUIRED"
+                          ? evidenceReasonRu(item.evidenceReason)
+                          : "требуется проверить источник"}
               </li>
             ))}
           </ul>

@@ -74,6 +74,10 @@ export async function bulkAcceptSafeFieldsAction(formData: FormData) {
       admin,
     });
     ready = completeness.ready;
+    await admin
+      .from("applications")
+      .update({ status: ready ? "data_complete" : "needs_data_review" })
+      .eq("id", parsed.data);
     revalidatePath(`/applications/${parsed.data}`);
   } catch (error) {
     console.error("bulkAcceptSafeFieldsAction failed", error);

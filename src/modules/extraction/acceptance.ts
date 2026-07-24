@@ -13,6 +13,7 @@ import {
   validateOgrn,
 } from "./preprocessing";
 import { canonicalComparable } from "./processing";
+import { assessSourceEvidence, labelPatterns } from "./source-evidence";
 
 export const SAFE_ACCEPTANCE_VALIDATOR_VERSION = "safe-field-acceptance-v1";
 
@@ -55,72 +56,11 @@ export type AcceptanceDecision = {
     | "ALREADY_ACCEPTED"
     | "NOT_APPLICABLE"
     | "SYSTEM_MANAGED";
-};
-
-const labelPatterns: Record<string, RegExp> = {
-  legal_name: /(?:полное\s+наименование|legal_name)\s*:/iu,
-  short_name: /(?:краткое\s+наименование|short_name)\s*:/iu,
-  inn: /инн\s*:/iu,
-  kpp: /кпп\s*:/iu,
-  ogrn: /огрн\s*:/iu,
-  legal_address: /(?:юридический\s+адрес|legal_address)\s*:/iu,
-  actual_address: /(?:фактический\s+адрес|actual_address)\s*:/iu,
-  bank_name: /(?:банк|bank_name)\s*:/iu,
-  bank_account: /(?:расч[её]тный\s+сч[её]т|bank_account|р\/с)\s*:/iu,
-  correspondent_account:
-    /(?:корреспондентский\s+сч[её]т|correspondent_account|к\/с)\s*:/iu,
-  bik: /бик\s*:/iu,
-  contact_name: /(?:контактное\s+лицо|contact_name)\s*:/iu,
-  contact_email: /(?:контактный\s+email|email|contact_email)\s*:/iu,
-  contact_phone: /(?:контактный\s+телефон|телефон|contact_phone)\s*:/iu,
-  signer_name: /(?:подписант|фио\s+подписанта|signer_name)\s*:/iu,
-  signer_position: /(?:должность|signer_position)\s*:/iu,
-  signer_authority: /(?:основание\s+полномочий|signer_authority)\s*:/iu,
-  authority_document: /(?:документ\s+о\s+полномочиях|authority_document)\s*:/iu,
-  authority_date: /(?:дата\s+документа|authority_date)\s*:/iu,
-  authority_number: /(?:номер\s+документа|authority_number)\s*:/iu,
-  contract_subject: /(?:предмет\s+договора|contract_subject)\s*:/iu,
-  contract_amount: /(?:стоимость(?:\s+услуг)?|сумма(?:\s+договора)?|contract_amount)\s*:/iu,
-  currency: /(?:валюта|currency)\s*:/iu,
-  performance_start_date: /(?:дата\s+начала|performance_start_date)\s*:/iu,
-  performance_end_date: /(?:дата\s+окончания|performance_end_date)\s*:/iu,
-  performance_period_text: /(?:срок\s+(?:оказания\s+услуг|исполнения)|performance_period_text)\s*:/iu,
-  payment_terms: /(?:условия\s+оплаты|payment_terms)\s*:/iu,
-  payment_due_days: /(?:срок\s+оплаты|payment_due_days)\s*:/iu,
-  advance_percentage: /(?:аванс|advance_percentage)\s*:/iu,
-  contract_date: /(?:дата\s+договора|contract_date)\s*:/iu,
-  additional_conditions: /(?:дополнительные\s+условия|additional_conditions)\s*:/iu,
+  evidenceReason?: string | null;
 };
 
 function valueOf(field: AcceptanceField) {
   return field.structured_value?.normalizedValue ?? field.raw_value;
-}
-
-function normalizedEvidence(value: unknown) {
-  return String(value ?? "")
-    .normalize("NFKC")
-    .replace(/\s+/gu, " ")
-    .trim()
-    .toLocaleLowerCase("ru-RU");
-}
-
-function sourceMatches(field: AcceptanceField) {
-  if (
-    !field.source_type ||
-    field.source_type === "manual" ||
-    !field.source_id ||
-    !field.source_marker ||
-    !field.source_excerpt
-  ) return false;
-  const excerpt = normalizedEvidence(field.source_excerpt);
-  const raw = normalizedEvidence(
-    field.structured_value?.rawValue ?? field.raw_value ?? valueOf(field),
-  );
-  const pattern = labelPatterns[field.field_name];
-  if (!pattern || raw.length === 0 || !excerpt.includes(raw)) return false;
-  return field.source_excerpt
-    .split(/\r?\n/u)
-    .some((line) => pattern.test(line) && normalizedEvidence(line).includes(raw));
 }
 
 export function fieldValueFingerprint(field: AcceptanceField) {
@@ -270,10 +210,12 @@ export function assessSafeAcceptance(
       eligible: false, resolveConflict: false, reason: "INVALID_VALUE",
     };
   }
-  if (!sourceMatches(field)) {
+  const evidence = assessSourceEvidence(field);
+  if (!evidence.matched) {
     return {
       fieldId: field.id, fieldName: field.field_name, valueFingerprint: fingerprint,
       eligible: false, resolveConflict: false, reason: "SOURCE_REQUIRED",
+      evidenceReason: evidence.reason,
     };
   }
   const conflict = conflictResolution(field, conflicts);

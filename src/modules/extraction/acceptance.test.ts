@@ -143,4 +143,98 @@ describe("safe field acceptance", () => {
     expect(preview.eligible).toHaveLength(0);
     expect(preview.blocked).toHaveLength(0);
   });
+
+  it("auto-accepts all 11 fields that were previously stuck on SOURCE_REQUIRED", () => {
+    function evidenceField(
+      id: string,
+      fieldName: string,
+      value: string | number,
+      excerpt: string,
+    ): AcceptanceField {
+      return field({
+        id,
+        field_name: fieldName,
+        structured_value: { normalizedValue: value, rawValue: String(value) },
+        raw_value: String(value),
+        source_excerpt: excerpt,
+      });
+    }
+    const paymentSentence =
+      "Условия оплаты: 50% предоплата, оставшаяся часть в течение 5 рабочих дней после подписания акта выполненных работ.";
+    const periodSentence = "Срок оказания услуг: с 5 августа 2026 года по 5 сентября 2026 года";
+    const fields = [
+      evidenceField("f1", "contact_email", "ivan.petrov@example.ru", "E-mail: ivan.petrov@example.ru"),
+      evidenceField("f2", "bank_name", "ПАО Сбербанк", "Банк получателя: «ПАО Сбербанк»"),
+      evidenceField(
+        "f3",
+        "signer_position",
+        "Генеральный директор",
+        "Подписант: Иванов И.И.\nДолжность подписанта:\nГенеральный директор",
+      ),
+      evidenceField(
+        "f4",
+        "contract_subject",
+        "Оказание бухгалтерских услуг по ведению учета и сдаче отчетности",
+        "Предмет услуг:\nОказание бухгалтерских услуг по ведению учета и сдаче отчетности",
+      ),
+      evidenceField(
+        "f5",
+        "additional_conditions",
+        "Ежемесячный отчет и сданная отчетность в налоговую инспекцию",
+        "Результат оказания услуг:\nЕжемесячный отчет и сданная отчетность в налоговую инспекцию",
+      ),
+      evidenceField(
+        "f6",
+        "payment_terms",
+        "50% предоплата, оставшаяся часть в течение 5 рабочих дней после подписания акта выполненных работ",
+        paymentSentence,
+      ),
+      evidenceField("f7", "advance_percentage", 50, paymentSentence),
+      evidenceField("f8", "payment_due_days", 5, paymentSentence),
+      evidenceField(
+        "f9",
+        "performance_period_text",
+        "с 5 августа 2026 года по 5 сентября 2026 года",
+        periodSentence,
+      ),
+      evidenceField("f10", "performance_start_date", "2026-08-05", periodSentence),
+      evidenceField("f11", "performance_end_date", "2026-09-05", periodSentence),
+    ];
+    const preview = previewSafeAcceptance(fields, []);
+    expect(preview.eligible).toHaveLength(11);
+    expect(preview.blocked).toHaveLength(0);
+  });
+
+  it("keeps a field with a real conflict blocked even when its own evidence matches", () => {
+    const decision = assessSafeAcceptance(
+      field({
+        field_name: "contact_email",
+        structured_value: { normalizedValue: "ivan@example.ru", rawValue: "ivan@example.ru" },
+        raw_value: "ivan@example.ru",
+        source_excerpt: "E-mail: ivan@example.ru",
+        conflict_detected: true,
+      }),
+      [
+        {
+          field_name: "contact_email",
+          requires_review: true,
+          candidates: [
+            {
+              normalizedValue: "ivan@example.ru",
+              rawValue: "ivan@example.ru",
+              sourceExcerpt: "E-mail: ivan@example.ru",
+            },
+            {
+              normalizedValue: "petrov@example.ru",
+              rawValue: "petrov@example.ru",
+              sourceExcerpt: "E-mail: petrov@example.ru",
+            },
+          ],
+        },
+      ],
+    );
+    expect(decision).toEqual(
+      expect.objectContaining({ eligible: false, reason: "TRUE_CONFLICT" }),
+    );
+  });
 });

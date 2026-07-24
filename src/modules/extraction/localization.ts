@@ -62,3 +62,16 @@ export function extractionReasonRu(reason: string | null | undefined) {
   };
   return reason ? (labels[reason] ?? "Требуется проверка") : "";
 }
+
+export function evidenceReasonRu(reason: string | null | undefined) {
+  const labels: Record<string, string> = {
+    MISSING_ATTRIBUTION: "не указан источник значения",
+    NO_VALUE: "значение отсутствует",
+    NO_EVIDENCE_PATTERN: "в тексте источника нет явного текстового подтверждения",
+    VALUE_MISMATCH: "значение не совпадает с текстом источника",
+    AMBIGUOUS_EVIDENCE: "в источнике найдено несколько разных значений",
+    NUMERIC_ONLY_VALUE_REJECTED: "требуется полный текст условия, а не отдельное число",
+    NO_FIELD_SPECIFIC_RULE: "требуется проверить источник",
+  };
+  return reason ? (labels[reason] ?? "требуется проверить источник") : "требуется проверить источник";
+}
