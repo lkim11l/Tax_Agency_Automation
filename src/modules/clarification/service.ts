@@ -18,11 +18,7 @@ import {
   draftTransition,
   editDraftState,
 } from "./workflow";
-import { computeExtractionFingerprint } from "./fingerprint";
-import {
-  fieldValueFingerprint,
-  type AcceptanceField,
-} from "@/modules/extraction/acceptance";
+import { buildCurrentCompletenessFingerprint, resolveAcceptedFieldIds } from "./fingerprint";
 
 export type WorkflowExecution = {
   actorId: string;
@@ -90,52 +86,40 @@ export async function recalculateCompleteness(input: {
   if (applicationResult.error || fieldsResult.error || acceptancesResult.error) {
     throw new Error("Unable to load completeness inputs.");
   }
-  const accepted = new Set(
-    (acceptancesResult.data ?? []).map((item) =>
-      `${item.extracted_field_id}:${item.value_fingerprint}`),
-  );
+  const rawFields = fieldsResult.data ?? [];
+  const rawAcceptances = acceptancesResult.data ?? [];
+  const acceptedIds = resolveAcceptedFieldIds(rawFields, rawAcceptances);
   const ruleSet = getRuleSet(input.ruleSetId);
-  const fields: CompletenessFieldInput[] = (fieldsResult.data ?? []).map(
-    (field) => {
-      const valueFingerprint = fieldValueFingerprint(field as AcceptanceField);
-      return {
-      fieldName: field.field_name,
-      value:
-        (field.structured_value as Record<string, unknown> | null)?.normalizedValue ??
-        field.raw_value,
-      sourceType: field.source_type,
-      sourceId: field.source_id,
-      sourceMarker: field.source_marker,
-      sourceExcerpt: field.source_excerpt,
-      confidence: field.confidence,
-      requiresReview: field.requires_review,
-      conflictDetected: field.conflict_detected,
-      manuallyCorrected: field.manually_corrected,
-      accepted: accepted.has(`${field.id}:${valueFingerprint}`),
-      fieldState:
-        (field.structured_value as Record<string, unknown> | null)?.fieldState ===
-          "not_applicable" ||
-        (field.structured_value as Record<string, unknown> | null)?.fieldState ===
-          "system_managed"
-          ? ((field.structured_value as Record<string, unknown>).fieldState as
-              | "not_applicable"
-              | "system_managed")
-          : null,
-    };
-    },
-  );
+  const fields: CompletenessFieldInput[] = rawFields.map((field) => ({
+    fieldName: field.field_name,
+    value:
+      (field.structured_value as Record<string, unknown> | null)?.normalizedValue ??
+      field.raw_value,
+    sourceType: field.source_type,
+    sourceId: field.source_id,
+    sourceMarker: field.source_marker,
+    sourceExcerpt: field.source_excerpt,
+    confidence: field.confidence,
+    requiresReview: field.requires_review,
+    conflictDetected: field.conflict_detected,
+    manuallyCorrected: field.manually_corrected,
+    accepted: acceptedIds.has(field.id),
+    fieldState:
+      (field.structured_value as Record<string, unknown> | null)?.fieldState ===
+        "not_applicable" ||
+      (field.structured_value as Record<string, unknown> | null)?.fieldState ===
+        "system_managed"
+        ? ((field.structured_value as Record<string, unknown>).fieldState as
+            | "not_applicable"
+            | "system_managed")
+        : null,
+  }));
   const evaluation = evaluateCompleteness(ruleSet, fields);
-  const extractionFingerprint = computeExtractionFingerprint(
-    fields.map((field) => ({
-      fieldName: field.fieldName,
-      value: field.value,
-      confidence: field.confidence,
-      requiresReview: field.requiresReview,
-      conflictDetected: field.conflictDetected,
-      manuallyCorrected: field.manuallyCorrected,
-      accepted: field.accepted,
-    })),
-  );
+  // Same helper contract generation eligibility uses — never diverge here.
+  const extractionFingerprint = buildCurrentCompletenessFingerprint({
+    fields: rawFields,
+    acceptances: rawAcceptances,
+  });
   const existing = await admin
     .from("completeness_runs")
     .select("id")

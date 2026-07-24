@@ -5,7 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalContext } from "@/lib/auth/context";
 import { getProjectDateIso } from "@/lib/project-time";
 import { createAdminClient } from "@/lib/supabase/admin.server";
-import { computeExtractionFingerprint } from "@/modules/clarification/fingerprint";
+import {
+  buildCurrentCompletenessFingerprint,
+  type CompletenessAcceptanceRecord,
+  type CompletenessSourceField,
+} from "@/modules/clarification/fingerprint";
+import { getRuleSet } from "@/modules/clarification/rules";
+import { recalculateCompleteness } from "@/modules/clarification/service";
 
 import {
   CONTRACT_BUCKET,
@@ -264,38 +270,90 @@ async function loadGenerationSource(
   admin: SupabaseClient,
   applicationId: string,
   templateId: string,
+  actorId: string,
 ) {
-  const [application, template, completeness, fields, extraction, newerEmails, newerAttachments] =
+  const [application, template] = await Promise.all([
+    admin.from("applications").select("id,application_number").eq("id", applicationId).single(),
+    admin.from("contract_templates").select("*").eq("id", templateId).single(),
+  ]);
+  if (application.error || !application.data || template.error || !template.data) {
+    throw new Error("Unable to load contract generation source.");
+  }
+
+  const ruleSetId = template.data.required_rule_set as string;
+  const ruleSet = getRuleSet(ruleSetId);
+
+  const [fieldsResult, acceptancesResult, extraction, newerEmails, newerAttachments] =
     await Promise.all([
-      admin.from("applications").select("id,application_number").eq("id", applicationId).single(),
-      admin.from("contract_templates").select("*").eq("id", templateId).single(),
-      admin.from("completeness_runs").select("*").eq("application_id", applicationId).order("created_at", { ascending: false }).limit(1).single(),
-      admin.from("extracted_fields").select("field_name,structured_value,raw_value,confidence,requires_review,conflict_detected,manually_corrected").eq("application_id", applicationId),
-      admin.from("extraction_runs").select("id").eq("application_id", applicationId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      admin
+        .from("extracted_fields")
+        .select(
+          "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected,manually_corrected",
+        )
+        .eq("application_id", applicationId),
+      admin
+        .from("extracted_field_acceptances")
+        .select("extracted_field_id,value_fingerprint")
+        .eq("application_id", applicationId),
+      admin.from("extraction_runs").select("id,completed_at").eq("application_id", applicationId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).maybeSingle(),
       admin.from("email_messages").select("id,created_at").eq("application_id", applicationId).order("created_at", { ascending: false }).limit(1),
       admin.from("attachments").select("id,created_at").eq("application_id", applicationId).order("created_at", { ascending: false }).limit(1),
     ]);
-  const error = application.error ?? template.error ?? completeness.error ?? fields.error ?? extraction.error ?? newerEmails.error ?? newerAttachments.error;
-  if (error || !application.data || !template.data || !completeness.data) {
-    throw new Error("Unable to load contract generation source.");
+  const loadError = fieldsResult.error ?? acceptancesResult.error ?? extraction.error ?? newerEmails.error ?? newerAttachments.error;
+  if (loadError) throw new Error("Unable to load contract generation source.");
+
+  const rawFields = (fieldsResult.data ?? []) as CompletenessSourceField[];
+  const rawAcceptances = (acceptancesResult.data ?? []) as CompletenessAcceptanceRecord[];
+  // The one and only fingerprint algorithm — identical to the one
+  // `recalculateCompleteness` uses, so a completeness run it just produced
+  // is always found here by exact match instead of appearing "stale".
+  const fingerprint = buildCurrentCompletenessFingerprint({
+    fields: rawFields,
+    acceptances: rawAcceptances,
+  });
+
+  let completeness = await admin
+    .from("completeness_runs")
+    .select("*")
+    .eq("application_id", applicationId)
+    .eq("rule_set_id", ruleSetId)
+    .eq("rule_set_version", ruleSet.version)
+    .eq("extraction_fingerprint", fingerprint)
+    .maybeSingle();
+  if (completeness.error) throw new Error("Unable to load contract generation source.");
+
+  if (!completeness.data) {
+    // No completeness run reflects the application's current data under the
+    // selected template's rule set (e.g. right after a bulk field
+    // acceptance, or the template's rule set differs from whatever was last
+    // calculated). Recalculate automatically instead of requiring a second
+    // "Обработать заявку" click before generation can proceed.
+    const recalculated = await recalculateCompleteness({
+      applicationId,
+      ruleSetId,
+      initiatedBy: actorId,
+      admin,
+    });
+    const refetched = await admin
+      .from("completeness_runs")
+      .select("*")
+      .eq("id", recalculated.runId)
+      .single();
+    if (refetched.error || !refetched.data) {
+      throw new Error("Unable to load contract generation source.");
+    }
+    completeness = refetched;
   }
+  const completenessRow = completeness.data;
+
   const completenessBlockers = await admin
     .from("completeness_field_results")
     .select("status")
-    .eq("completeness_run_id", completeness.data.id)
+    .eq("completeness_run_id", completenessRow.id)
     .eq("is_blocking", true);
   if (completenessBlockers.error) {
     throw new Error("Unable to verify completeness field blockers.");
   }
-  const mappedFields = (fields.data ?? []).map((field) => ({
-    fieldName: field.field_name,
-    value: (field.structured_value as Record<string, unknown> | null)?.normalizedValue ?? field.raw_value,
-    confidence: field.confidence,
-    requiresReview: field.requires_review,
-    conflictDetected: field.conflict_detected,
-    manuallyCorrected: field.manually_corrected,
-  }));
-  const fingerprint = computeExtractionFingerprint(mappedFields);
   const blocking: string[] = [];
   if (template.data.status !== "approved" || !template.data.is_active) blocking.push("TEMPLATE_NOT_APPROVED");
   if (
@@ -306,23 +364,42 @@ async function loadGenerationSource(
   ) {
     blocking.push("TEMPLATE_VALIDATION_INVALID");
   }
-  if (!completeness.data.is_ready || completeness.data.is_blocking) blocking.push("APPLICATION_NOT_READY");
+  if (!completenessRow.is_ready || completenessRow.is_blocking) blocking.push("APPLICATION_NOT_READY");
   if ((completenessBlockers.data?.length ?? 0) > 0) {
     blocking.push("COMPLETENESS_FIELD_BLOCKED");
   }
-  if (mappedFields.some((field) => field.conflictDetected)) blocking.push("UNRESOLVED_CONFLICT");
-  if (mappedFields.some((field) => field.requiresReview)) blocking.push("REVIEW_REQUIRED_FIELD");
-  if (completeness.data.extraction_fingerprint !== fingerprint) blocking.push("SOURCE_FINGERPRINT_MISMATCH");
-  if (template.data.required_rule_set !== completeness.data.rule_set_id) blocking.push("RULE_SET_MISMATCH");
-  const completenessTime = new Date(completeness.data.created_at).getTime();
-  if ([newerEmails.data?.[0], newerAttachments.data?.[0]].some((item) => item && new Date(item.created_at).getTime() > completenessTime)) {
+  if (rawFields.some((field) => field.conflict_detected)) blocking.push("UNRESOLVED_CONFLICT");
+  if (rawFields.some((field) => field.requires_review)) blocking.push("REVIEW_REQUIRED_FIELD");
+  // Defense in depth: by construction the run above always matches, but
+  // never skip verifying it — these two checks must still be able to block.
+  if (completenessRow.extraction_fingerprint !== fingerprint) blocking.push("SOURCE_FINGERPRINT_MISMATCH");
+  if (template.data.required_rule_set !== completenessRow.rule_set_id) blocking.push("RULE_SET_MISMATCH");
+  // Compare against the latest completed extraction, not the completeness
+  // run's own timestamp: a completeness run that was just auto-recalculated
+  // above is always "fresh" by definition, so it can never look stale
+  // relative to raw inputs on its own — only whether extraction itself has
+  // actually caught up with the newest email/attachment tells us that.
+  const staleReferenceTime = extraction.data?.completed_at
+    ? new Date(extraction.data.completed_at).getTime()
+    : new Date(completenessRow.created_at).getTime();
+  if (
+    [newerEmails.data?.[0], newerAttachments.data?.[0]].some(
+      (item) => item && new Date(item.created_at).getTime() > staleReferenceTime,
+    )
+  ) {
     blocking.push("COMPLETENESS_STALE");
   }
+  const mappedFields = Object.fromEntries(
+    rawFields.map((field) => [
+      field.field_name,
+      (field.structured_value as Record<string, unknown> | null)?.normalizedValue ?? field.raw_value,
+    ]),
+  ) as Record<string, string | number | null>;
   return {
     application: application.data,
     template: template.data,
-    completeness: completeness.data,
-    fields: Object.fromEntries(mappedFields.map((field) => [field.fieldName, field.value])) as Record<string, string | number | null>,
+    completeness: completenessRow,
+    fields: mappedFields,
     fingerprint,
     blocking,
     extractionRunId: extraction.data?.id ?? null,
@@ -332,9 +409,10 @@ async function loadGenerationSource(
 export async function checkContractEligibility(
   applicationId: string,
   templateId: string,
+  execution?: Execution,
 ) {
-  const { admin } = await executionContext();
-  const source = await loadGenerationSource(admin, applicationId, templateId);
+  const { admin, actorId } = await executionContext(execution);
+  const source = await loadGenerationSource(admin, applicationId, templateId, actorId);
   return {
     ready: source.blocking.length === 0,
     blockingReasons: source.blocking,
@@ -351,7 +429,7 @@ export async function generateContract(input: {
 }, execution?: Execution) {
   const context = await executionContext(execution);
   if (input.force && context.role !== "admin") throw new Error("Administrator access is required for force regeneration.");
-  const source = await loadGenerationSource(context.admin, input.applicationId, input.templateId);
+  const source = await loadGenerationSource(context.admin, input.applicationId, input.templateId, context.actorId);
   if (source.blocking.length) {
     await audit(context.admin, {
       actorId: context.actorId,
