@@ -11,8 +11,11 @@ export async function GET() {
     const unavailable = snapshot.components.some(
       (component) => component.status === "unavailable",
     );
-    const staleSync = !snapshot.lastMailboxRun ||
-      Date.now() - new Date(snapshot.lastMailboxRun.started_at).getTime() > 15 * 60_000;
+    const automaticMailboxSync = process.env.AUTOMATIC_MAILBOX_SYNC_ENABLED === "true";
+    const staleSync = automaticMailboxSync && (
+      !snapshot.lastMailboxRun ||
+      Date.now() - new Date(snapshot.lastMailboxRun.started_at).getTime() > 15 * 60_000
+    );
     const degraded = unavailable || staleSync || snapshot.failedJobsLast24Hours > 0;
     return NextResponse.json(
       {
@@ -23,6 +26,7 @@ export async function GET() {
         environment: process.env.APP_ENV ?? "unknown",
         components: snapshot.components,
         mailbox: {
+          mode: automaticMailboxSync ? "automatic" : "manual",
           lastRunStatus: snapshot.lastMailboxRun?.status ?? "never",
           lastRunStartedAt: snapshot.lastMailboxRun?.started_at ?? null,
         },

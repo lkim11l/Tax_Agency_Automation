@@ -5,27 +5,34 @@ export type Locale = (typeof supportedLocales)[number];
 export const LOCALE_COOKIE = "taa_locale";
 
 export async function getLocale(): Promise<Locale> {
-  const value = (await cookies()).get(LOCALE_COOKIE)?.value;
-  return value === "en" ? "en" : "ru";
+  return (await cookies()).get(LOCALE_COOKIE)?.value === "en" ? "en" : "ru";
 }
 
 const statusRu: Record<string, string> = {
   new: "Новая",
-  processing: "Обработка",
-  needs_data_review: "Нужна проверка данных",
+  processing: "В обработке",
+  needs_data_review: "Требует проверки данных",
   waiting_for_client: "Ожидает клиента",
   data_complete: "Данные готовы",
-  generating_contract: "Формирование договора",
+  generating_contract: "Формируется договор",
   contract_ready: "Договор готов",
   under_review: "На проверке",
-  contract_revision_required: "Требуется новая версия",
+  needs_revision: "Требует доработки",
+  contract_revision_required: "Требует новой версии",
   approved: "Одобрено",
-  sending: "Отправка",
+  awaiting_approval: "Ожидает утверждения",
+  pending_customer_approval: "Ожидает утверждения заказчиком",
+  rejected: "Отклонено",
+  inactive: "Неактивен",
+  archived: "В архиве",
+  draft: "Черновик",
+  sending: "Отправляется",
+  sent: "Отправлен",
   contract_sent: "Договор отправлен",
   completed: "Завершено",
   processing_error: "Ошибка обработки",
   cancelled: "Отменено",
-  delivered: "Доставлено",
+  delivered: "Доставлен",
   failed: "Ошибка",
   completed_with_errors: "Завершено с ошибками",
   running: "Выполняется",
@@ -33,18 +40,76 @@ const statusRu: Record<string, string> = {
   degraded: "Ограниченно",
   unavailable: "Недоступно",
   unknown: "Не проверено",
+  ready: "Готово",
+};
+
+const priorityRu: Record<string, string> = {
+  low: "Низкий",
+  normal: "Обычный",
+  high: "Высокий",
+  urgent: "Срочный",
+};
+
+const templateTypeRu: Record<string, string> = {
+  services: "Оказание услуг",
+  consulting: "Консультационные услуги",
+  supply: "Поставка",
 };
 
 export function localizeStatus(value: string, locale: Locale) {
   return locale === "ru" ? (statusRu[value] ?? value) : value;
 }
 
+export function localizePriority(value: string, locale: Locale) {
+  return locale === "ru" ? (priorityRu[value] ?? value) : value;
+}
+
+export function localizeTemplateType(value: string, locale: Locale) {
+  return locale === "ru" ? (templateTypeRu[value] ?? value) : value;
+}
+
+export function formatDate(value: string | Date | null, locale: Locale) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+export function formatDateTime(value: string | Date | null, locale: Locale) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
+export function formatAmount(
+  amount: number | null,
+  currency: string | null,
+  locale: Locale,
+) {
+  if (amount === null) return "—";
+  return new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-GB", {
+    style: currency ? "currency" : "decimal",
+    currency: currency ?? undefined,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 export function messages(locale: Locale) {
   const ru = locale === "ru";
   return {
     locale,
-    appName: "Tax Agency Automation",
+    appName: ru ? "Автоматизация договорной работы" : "Contract Workflow Automation",
     nav: {
+      dashboard: ru ? "Обзор" : "Dashboard",
       applications: ru ? "Заявки" : "Applications",
       counterparties: ru ? "Контрагенты" : "Counterparties",
       templates: ru ? "Шаблоны" : "Templates",

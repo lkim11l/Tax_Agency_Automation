@@ -34,9 +34,14 @@ export default async function SettingsPage({
         ) : null}
       </div>
       <Feedback error={feedback.error} success={feedback.success} />
+      <p className="alert alert-warning">
+        {ru
+          ? "Автоматическая синхронизация отключена. Запускайте проверку почты вручную."
+          : "Automatic synchronization is disabled. Run mailbox checks manually."}
+      </p>
       {!operations ? (
         <section className="panel">
-          <p>Administrator access is required to view operational status.</p>
+          <p>{ru ? "Просмотр состояния системы доступен администратору." : "Administrator access is required to view operational status."}</p>
         </section>
       ) : (
         <>

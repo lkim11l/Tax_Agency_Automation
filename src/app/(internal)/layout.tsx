@@ -17,6 +17,7 @@ export default async function InternalLayout({
   ]);
   const text = messages(locale);
   const navigation = [
+    { href: "/dashboard", label: text.nav.dashboard },
     { href: "/applications", label: text.nav.applications },
     { href: "/counterparties", label: text.nav.counterparties },
     { href: "/templates", label: text.nav.templates },
@@ -29,7 +30,7 @@ export default async function InternalLayout({
   return (
     <div className="shell">
       <aside className="sidebar">
-        <h1>Tax Agency Automation</h1>
+        <h1>{text.appName}</h1>
         <nav aria-label="Internal navigation">
           {navigation.map((item) => (
             <Link href={item.href} key={item.href}>
@@ -42,7 +43,7 @@ export default async function InternalLayout({
           <button type="submit">{text.nav.signOut}</button>
         </form>
         <form action={setLocaleAction} className="locale-switcher">
-          <input type="hidden" name="return_to" value="/applications" />
+          <input type="hidden" name="return_to" value="/dashboard" />
           <button name="locale" value="ru" type="submit" disabled={locale === "ru"}>RU</button>
           <button name="locale" value="en" type="submit" disabled={locale === "en"}>EN</button>
         </form>

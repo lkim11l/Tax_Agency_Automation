@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <h1>Tax Agency Automation</h1>
+        <h1>{text.appName}</h1>
         <p className="muted">{text.login.hint}</p>
         <form action={setLocaleAction} className="locale-switcher locale-switcher-auth">
           <input type="hidden" name="return_to" value="/login" />
@@ -50,7 +50,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ) : null}
 
         <form action={signIn} className="auth-form">
-          <input type="hidden" name="next" value={params.next ?? "/applications"} />
+          <input type="hidden" name="next" value={params.next ?? "/dashboard"} />
           <label>
             {text.login.email}
             <input

@@ -6,8 +6,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Tax Agency Automation",
-    template: "%s | Tax Agency Automation",
+    default: "Автоматизация договорной работы",
+    template: "%s | Автоматизация договорной работы",
   },
   description: "Internal contract workflow operations application.",
 };

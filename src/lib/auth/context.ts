@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import {
   assertOperationalAccess,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/auth/access";
 import { createClient } from "@/lib/supabase/server";
 
-export async function getOperationalContext() {
+async function loadOperationalContext() {
   const supabase = await createClient();
   if (!supabase) {
     throw new AuthenticationRequiredError();
@@ -41,6 +42,8 @@ export async function getOperationalContext() {
 
   return { supabase, user, profile };
 }
+
+export const getOperationalContext = cache(loadOperationalContext);
 
 export async function requireOperationalContextOrRedirect() {
   try {

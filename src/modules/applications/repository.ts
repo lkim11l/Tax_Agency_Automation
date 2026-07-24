@@ -31,6 +31,8 @@ export type ApplicationFilters = {
   assignedTo?: string;
   dateFrom?: string;
   dateTo?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type ApplicationDetail = ApplicationListItem & {
@@ -90,9 +92,12 @@ const applicationListSelect = `
 
 export async function listApplications(filters: ApplicationFilters) {
   const { supabase } = await getOperationalContext();
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.min(100, Math.max(10, filters.pageSize ?? 25));
+  const start = (page - 1) * pageSize;
   let query = supabase
     .from("applications")
-    .select(applicationListSelect)
+    .select(applicationListSelect, { count: "exact" })
     .order("received_at", { ascending: false });
 
   if (filters.number) {
@@ -116,7 +121,7 @@ export async function listApplications(filters: ApplicationFilters) {
   if (filters.counterparty) {
     const term = sanitizePostgrestSearchTerm(filters.counterparty);
     if (!term) {
-      return toApplicationListState<ApplicationListItem>([], null);
+      return { state: toApplicationListState<ApplicationListItem>([], null), count: 0, page, pageCount: 1 };
     }
     const { data: matches, error: counterpartyError } = await supabase
       .from("counterparties")
@@ -124,21 +129,24 @@ export async function listApplications(filters: ApplicationFilters) {
       .or(`legal_name.ilike.%${term}%,inn.ilike.%${term}%`);
 
     if (counterpartyError) {
-      return toApplicationListState<ApplicationListItem>(null, counterpartyError);
+      return { state: toApplicationListState<ApplicationListItem>(null, counterpartyError), count: 0, page, pageCount: 1 };
     }
 
     const ids = (matches ?? []).map((item) => item.id as string);
     if (ids.length === 0) {
-      return toApplicationListState<ApplicationListItem>([], null);
+      return { state: toApplicationListState<ApplicationListItem>([], null), count: 0, page, pageCount: 1 };
     }
     query = query.in("counterparty_id", ids);
   }
 
-  const { data, error } = await query;
-  return toApplicationListState(
-    data as unknown as ApplicationListItem[] | null,
-    error,
-  );
+  const { data, error, count } = await query.range(start, start + pageSize - 1);
+  const total = count ?? 0;
+  return {
+    state: toApplicationListState(data as unknown as ApplicationListItem[] | null, error),
+    count: total,
+    page,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getApplication(id: string) {
