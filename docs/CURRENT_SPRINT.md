@@ -322,4 +322,27 @@ Microsoft Excel opened the file read-only with exactly `Contracts` and
 
 ## Next phase rule
 
-Phase 9 remains forbidden until a separate direct user instruction starts it.
+Phase 9 was started by direct user instruction. Do not start post-MVP work.
+
+## Phase 9 — Pilot hardening and deployment
+
+- [x] Select Vercel Pro + hosted Supabase as the production target.
+- [x] Add production environment and five-minute cron configuration.
+- [x] Add protected, database-locked, persisted mailbox pipeline runs.
+- [x] Limit automation to ingestion, parsing, extraction and completeness.
+- [x] Add public safe health and admin-only component/job status.
+- [x] Add retry/backoff, stale-run recovery and safe error persistence.
+- [x] Add RU/EN locale foundation with Russian as the default.
+- [x] Add deployment, operations, incident, backup, security and Russian user docs.
+- [x] Apply the operations migration and run two hosted non-sending smoke runs.
+- [ ] Link and deploy the Vercel production project.
+- [ ] Configure and verify the production URL, domain and production secrets.
+- [ ] Provision exactly one production admin and one production specialist.
+- [ ] Verify production cron scheduling and deployment smoke tests.
+- [ ] Perform an isolated database-and-Storage restore rehearsal.
+- [ ] Run and sign off the complete fresh synthetic end-to-end pilot scenario.
+- [ ] Train the initial operator and start the pilot.
+
+Current blocker: Vercel owner authentication/project linking, production
+Supabase separation, domain configuration and an owner-supervised restore
+environment are not available in this repository session.

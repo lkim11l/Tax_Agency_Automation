@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getLocale, localizeStatus } from "@/lib/i18n";
 import { ApplicationForm } from "@/components/application-form";
 import { ContractDeliveryPanel } from "@/components/contract-delivery-panel";
 import { Feedback } from "@/components/feedback";
@@ -76,6 +77,7 @@ export default async function ApplicationDetailPage({
     clarification,
     contractState,
     deliveryState,
+    locale,
   ] =
     await Promise.all([
       getApplicationActivity(id),
@@ -88,6 +90,7 @@ export default async function ApplicationDetailPage({
       getClarificationState(id),
       getContractState(id),
       getDeliveryState(id),
+      getLocale(),
     ]);
 
   return (
@@ -96,17 +99,19 @@ export default async function ApplicationDetailPage({
         <div>
           <h2>{application.application_number}</h2>
           <p className="muted">
-            Current status: <strong>{application.status}</strong>
+            {locale === "ru" ? "Текущий статус" : "Current status"}:{" "}
+            <strong>{localizeStatus(application.status, locale)}</strong>
           </p>
         </div>
-        <Link href="/applications">Back to applications</Link>
+        <Link href="/applications">{locale === "ru" ? "К списку заявок" : "Back to applications"}</Link>
       </div>
 
       <Feedback error={feedback.error} success={feedback.success} />
 
       <section className="panel section-gap">
-        <h3>Main data</h3>
+        <h3>{locale === "ru" ? "Основные данные" : "Main data"}</h3>
         <ApplicationForm
+          locale={locale}
           action={updateApplicationAction}
           application={application}
           counterparties={counterparties.map((item) => ({

@@ -30,9 +30,8 @@ Registry and reporting
 
 Reliability first. The interface should be simple and operational. No design polish should delay the end-to-end workflow.
 
-Phase 0 through Phase 6 are complete. The current flow reaches a private,
-immutable DOCX contract version in `awaiting_review`; approval and delivery are
-reserved for Phase 7.
+Phase 0 through Phase 8 are complete. Phase 9 production-pilot hardening is in
+progress; production deployment and pilot start require owner actions.
 
 ## Start here
 
@@ -179,6 +178,15 @@ After signing in, the internal routes are:
 - `/settings`
 
 The public health endpoint is `GET /api/health`.
+
+The admin-only operational status page is `/settings`. A protected five-minute
+mailbox pipeline is configured at `GET /api/cron/mailbox`; production requires
+Vercel Pro and a server-only `CRON_SECRET`. Run a hosted non-sending smoke check
+with `npm run test:operations:smoke`. Deployment, incidents, backups, security
+and Russian operator steps are documented in `docs/DEPLOYMENT.md`,
+`docs/PILOT_RUNBOOK.md`, `docs/INCIDENT_RESPONSE.md`,
+`docs/BACKUP_RECOVERY.md`, `docs/SECURITY_CHECKLIST.md` and
+`docs/USER_GUIDE_RU.md`.
 
 ## Mail.ru ingestion
 

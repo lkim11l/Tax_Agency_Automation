@@ -305,19 +305,19 @@ Run the product with real test traffic while keeping human control.
 
 - [ ] Prepare production environment.
 - [ ] Configure backups.
-- [ ] Configure error monitoring.
-- [ ] Review access controls.
-- [ ] Review storage permissions.
+- [x] Configure persisted error monitoring and an admin status page.
+- [x] Review application, cron and operational-table access controls.
+- [x] Review private storage permissions.
 - [ ] Test restore procedure.
 - [ ] Run all critical scenarios.
-- [ ] Test duplicate email.
+- [x] Test duplicate scheduled processing against the hosted project.
 - [ ] Test missing amount.
 - [ ] Test missing signer.
 - [ ] Test conflicting requisites.
 - [ ] Test unsupported attachment.
 - [ ] Test AI failure.
 - [ ] Test send failure.
-- [ ] Prepare operator instructions.
+- [x] Prepare operator instructions.
 - [ ] Train the initial user.
 - [ ] Start pilot.
 - [ ] Record pilot defects separately from feature requests.

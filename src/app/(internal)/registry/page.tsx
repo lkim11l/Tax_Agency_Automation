@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { getLocale, localizeStatus } from "@/lib/i18n";
 import { listAssignableProfiles } from "@/modules/applications/repository";
 import { parseRegistryFilters } from "@/modules/reports/domain";
 import { listRegistry } from "@/modules/reports/repository";
@@ -20,15 +21,16 @@ function query(filters: ReturnType<typeof parseRegistryFilters>, page: number) {
 export default async function RegistryPage({ searchParams }: Props) {
   const params = await searchParams;
   const filters = parseRegistryFilters(params);
-  const [result, profiles] = await Promise.all([listRegistry(filters), listAssignableProfiles()]);
+  const [result, profiles, locale] = await Promise.all([listRegistry(filters), listAssignableProfiles(), getLocale()]);
+  const ru = locale === "ru";
   return (
     <>
       <div className="page-heading">
-        <div><h2>Contract registry</h2><p className="muted">Server-filtered operational registry.</p></div>
-        <Link href="/reports">Monthly reports</Link>
+        <div><h2>{ru ? "Реестр договоров" : "Contract registry"}</h2><p className="muted">{ru ? "Операционный реестр с серверной фильтрацией." : "Server-filtered operational registry."}</p></div>
+        <Link href="/reports">{ru ? "Ежемесячные отчёты" : "Monthly reports"}</Link>
       </div>
       <section className="panel registry-panel">
-        <h3>Filters</h3>
+        <h3>{ru ? "Фильтры" : "Filters"}</h3>
         <form className="filter-grid">
           <label className="field">From<input type="date" name="dateFrom" defaultValue={filters.dateFrom} /></label>
           <label className="field">To<input type="date" name="dateTo" defaultValue={filters.dateTo} /></label>
@@ -46,7 +48,7 @@ export default async function RegistryPage({ searchParams }: Props) {
           <label className="field">Sort<select name="sort" defaultValue={filters.sort}><option value="received_at">Received</option><option value="contract_amount">Amount</option><option value="contract_number">Contract number</option><option value="counterparty_name">Counterparty</option><option value="application_status">Status</option></select></label>
           <label className="field">Direction<select name="direction" defaultValue={filters.direction}><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
           <input type="hidden" name="pageSize" value={filters.pageSize} />
-          <div className="filter-actions"><button type="submit">Apply</button><Link href="/registry">Reset</Link></div>
+          <div className="filter-actions"><button type="submit">{ru ? "Применить" : "Apply"}</button><Link href="/registry">{ru ? "Сбросить" : "Reset"}</Link></div>
         </form>
       </section>
       <dl className="summary-grid section-gap">
@@ -68,7 +70,7 @@ export default async function RegistryPage({ searchParams }: Props) {
               <td>{row.counterparty_id ? <Link href={`/counterparties/${row.counterparty_id}`}>{row.counterparty_name ?? "Counterparty"}</Link> : "—"}<br />{row.inn ?? ""}</td>
               <td>{row.contract_subject ?? "—"}</td>
               <td>{row.contract_amount === null ? "—" : `${row.contract_amount} ${row.currency ?? ""}`}</td>
-              <td>{row.application_status}<br />{row.contract_status ?? "No contract"}{row.has_conflicts ? <><br /><strong>Conflicts</strong></> : null}</td>
+              <td>{localizeStatus(row.application_status, locale)}<br />{row.contract_status ? localizeStatus(row.contract_status, locale) : (ru ? "Нет договора" : "No contract")}{row.has_conflicts ? <><br /><strong>{ru ? "Конфликты" : "Conflicts"}</strong></> : null}</td>
               <td>{row.specialist_name ?? row.specialist_email ?? "Unassigned"}</td>
               <td>{row.template_name ?? "—"} {row.template_version ?? ""}</td>
               <td>{row.completeness_percentage}%</td>

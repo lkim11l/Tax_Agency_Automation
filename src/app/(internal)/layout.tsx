@@ -1,25 +1,30 @@
 import Link from "next/link";
 
 import { requireOperationalContextOrRedirect } from "@/lib/auth/context";
+import { setLocaleAction } from "@/lib/i18n-actions";
+import { getLocale, messages } from "@/lib/i18n";
 
 import { signOut } from "./actions";
-
-const navigation = [
-  { href: "/applications", label: "Applications" },
-  { href: "/counterparties", label: "Counterparties" },
-  { href: "/templates", label: "Templates" },
-  { href: "/email", label: "Email" },
-  { href: "/registry", label: "Contract registry" },
-  { href: "/reports", label: "Reports" },
-  { href: "/settings", label: "Settings" },
-];
 
 export default async function InternalLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { profile } = await requireOperationalContextOrRedirect();
+  const [{ profile }, locale] = await Promise.all([
+    requireOperationalContextOrRedirect(),
+    getLocale(),
+  ]);
+  const text = messages(locale);
+  const navigation = [
+    { href: "/applications", label: text.nav.applications },
+    { href: "/counterparties", label: text.nav.counterparties },
+    { href: "/templates", label: text.nav.templates },
+    { href: "/email", label: text.nav.email },
+    { href: "/registry", label: text.nav.registry },
+    { href: "/reports", label: text.nav.reports },
+    { href: "/settings", label: text.nav.settings },
+  ];
 
   return (
     <div className="shell">
@@ -34,7 +39,12 @@ export default async function InternalLayout({
         </nav>
         <form action={signOut}>
           <p className="sidebar-user">{profile.full_name ?? profile.email}</p>
-          <button type="submit">Sign out</button>
+          <button type="submit">{text.nav.signOut}</button>
+        </form>
+        <form action={setLocaleAction} className="locale-switcher">
+          <input type="hidden" name="return_to" value="/applications" />
+          <button name="locale" value="ru" type="submit" disabled={locale === "ru"}>RU</button>
+          <button name="locale" value="en" type="submit" disabled={locale === "en"}>EN</button>
         </form>
       </aside>
       <main className="content">{children}</main>

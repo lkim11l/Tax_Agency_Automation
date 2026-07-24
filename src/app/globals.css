@@ -100,6 +100,21 @@ button:disabled {
   width: 100%;
 }
 
+.locale-switcher {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.locale-switcher button {
+  padding: 0.35rem 0.55rem;
+  width: auto;
+}
+
+.locale-switcher-auth {
+  margin-bottom: 1rem;
+}
+
 .content {
   padding: 2rem;
 }

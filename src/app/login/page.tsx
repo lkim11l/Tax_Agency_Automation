@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
+import { getLocale, messages } from "@/lib/i18n";
+import { setLocaleAction } from "@/lib/i18n-actions";
 
 import { signIn } from "./actions";
 
@@ -19,32 +21,38 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const isConfigured = getSupabasePublicConfig() !== null;
+  const locale = await getLocale();
+  const text = messages(locale);
 
   return (
     <main className="auth-page">
       <section className="auth-card">
         <h1>Tax Agency Automation</h1>
-        <p className="muted">Sign in with an account provisioned by an administrator.</p>
+        <p className="muted">{text.login.hint}</p>
+        <form action={setLocaleAction} className="locale-switcher locale-switcher-auth">
+          <input type="hidden" name="return_to" value="/login" />
+          <button name="locale" value="ru" type="submit" disabled={locale === "ru"}>RU</button>
+          <button name="locale" value="en" type="submit" disabled={locale === "en"}>EN</button>
+        </form>
 
         {!isConfigured || params.reason === "configuration" ? (
           <p className="error-message" role="alert">
-            Supabase is not configured. Add the required values to .env.local
-            before signing in.
+            {text.login.config}
           </p>
         ) : null}
 
         {params.error ? (
           <p className="error-message" role="alert">
             {params.error === "inactive"
-              ? "This account is inactive. Contact an administrator."
-              : "Sign-in failed. Check your email and password."}
+              ? text.login.inactive
+              : text.login.failed}
           </p>
         ) : null}
 
         <form action={signIn} className="auth-form">
           <input type="hidden" name="next" value={params.next ?? "/applications"} />
           <label>
-            Email
+            {text.login.email}
             <input
               type="email"
               name="email"
@@ -54,7 +62,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             />
           </label>
           <label>
-            Password
+            {text.login.password}
             <input
               type="password"
               name="password"
@@ -64,13 +72,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             />
           </label>
           <button type="submit" disabled={!isConfigured}>
-            Sign in
+            {text.login.submit}
           </button>
         </form>
 
         <p className="muted">
-          Self-service registration is disabled. Contact an administrator for
-          access.
+          {text.login.noSignup}
         </p>
       </section>
     </main>

@@ -329,3 +329,25 @@ A database projection avoids duplicating operational state while server scope
 prevents browser-side leakage. Immutable, fingerprinted artifacts make monthly
 figures reproducible and auditable. Keeping acceptance tooling outside runtime
 avoids a second spreadsheet engine in the production dependency graph.
+
+## ADR-019 — Vercel cron with database-owned pilot jobs
+
+Status: Accepted
+
+Decision:
+Deploy the modular Next.js application to Vercel Pro and retain Supabase as the
+hosted database, Auth and private Storage platform. Invoke one protected
+five-minute Vercel Cron route. Claim, heartbeat and finish each pipeline run
+through service-only PostgreSQL functions with an advisory lock, stale-run
+recovery, persisted stages and safe errors.
+
+The automatic pipeline may ingest mail, parse new attachments, extract new
+sources and recalculate completeness. It must never approve or send a
+clarification, contract or other legally significant message.
+
+Reason:
+The existing work is request-bounded and does not require a permanent worker or
+OCR runtime. Database ownership gives concurrent serverless invocations one
+auditable idempotency boundary. Vercel logs plus the admin status page and
+persisted job/component state provide pilot monitoring without introducing a
+second monitoring service before production traffic justifies it.

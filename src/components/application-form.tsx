@@ -1,5 +1,6 @@
 import type { ApplicationDetail } from "@/modules/applications/repository";
 import { applicationPriorities, supportedCurrencies } from "@/modules/applications/domain";
+import type { Locale } from "@/lib/i18n";
 
 type Option = { id: string; label: string };
 
@@ -9,13 +10,16 @@ export function ApplicationForm({
   counterparties,
   profiles,
   templates,
+  locale,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   application?: ApplicationDetail;
   counterparties: Option[];
   profiles: Option[];
   templates: Option[];
+  locale: Locale;
 }) {
+  const ru = locale === "ru";
   return (
     <form action={action} className="form-grid">
       {application ? (
@@ -23,12 +27,12 @@ export function ApplicationForm({
       ) : null}
 
       <label className="field field-wide">
-        Title
+        {ru ? "Название" : "Title"}
         <input name="title" required maxLength={200} defaultValue={application?.title} />
       </label>
 
       <label className="field">
-        Received at
+        {ru ? "Дата получения" : "Received at"}
         <input
           type="datetime-local"
           name="received_at"
@@ -41,7 +45,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Priority
+        {ru ? "Приоритет" : "Priority"}
         <select name="priority" defaultValue={application?.priority ?? "normal"}>
           {applicationPriorities.map((priority) => (
             <option value={priority} key={priority}>
@@ -52,7 +56,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field field-wide">
-        Contract subject
+        {ru ? "Предмет договора" : "Contract subject"}
         <textarea
           name="contract_subject"
           rows={3}
@@ -61,7 +65,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Amount
+        {ru ? "Сумма" : "Amount"}
         <input
           type="number"
           name="contract_amount"
@@ -72,9 +76,9 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Currency
+        {ru ? "Валюта" : "Currency"}
         <select name="currency" defaultValue={application?.currency ?? ""}>
-          <option value="">Not specified</option>
+          <option value="">{ru ? "Не указана" : "Not specified"}</option>
           {supportedCurrencies.map((currency) => (
             <option value={currency} key={currency}>
               {currency}
@@ -84,7 +88,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Performance start
+        {ru ? "Начало исполнения" : "Performance start"}
         <input
           type="date"
           name="performance_start_date"
@@ -93,7 +97,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Performance end
+        {ru ? "Окончание исполнения" : "Performance end"}
         <input
           type="date"
           name="performance_end_date"
@@ -102,7 +106,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field field-wide">
-        Payment terms
+        {ru ? "Условия оплаты" : "Payment terms"}
         <textarea
           name="payment_terms"
           rows={3}
@@ -111,12 +115,12 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Counterparty
+        {ru ? "Контрагент" : "Counterparty"}
         <select
           name="counterparty_id"
           defaultValue={application?.counterparty_id ?? ""}
         >
-          <option value="">Not assigned</option>
+          <option value="">{ru ? "Не выбран" : "Not assigned"}</option>
           {counterparties.map((option) => (
             <option value={option.id} key={option.id}>
               {option.label}
@@ -126,9 +130,9 @@ export function ApplicationForm({
       </label>
 
       <label className="field">
-        Responsible specialist
+        {ru ? "Ответственный специалист" : "Responsible specialist"}
         <select name="assigned_to" defaultValue={application?.assigned_to ?? ""}>
-          <option value="">Not assigned</option>
+          <option value="">{ru ? "Не назначен" : "Not assigned"}</option>
           {profiles.map((option) => (
             <option value={option.id} key={option.id}>
               {option.label}
@@ -138,12 +142,12 @@ export function ApplicationForm({
       </label>
 
       <label className="field field-wide">
-        Contract template metadata
+        {ru ? "Шаблон договора" : "Contract template metadata"}
         <select
           name="contract_template_id"
           defaultValue={application?.contract_template_id ?? ""}
         >
-          <option value="">Not selected</option>
+          <option value="">{ru ? "Не выбран" : "Not selected"}</option>
           {templates.map((option) => (
             <option value={option.id} key={option.id}>
               {option.label}
@@ -153,7 +157,7 @@ export function ApplicationForm({
       </label>
 
       <label className="field field-wide">
-        Internal notes
+        {ru ? "Внутренние заметки" : "Internal notes"}
         <textarea
           name="internal_notes"
           rows={5}
@@ -162,7 +166,11 @@ export function ApplicationForm({
       </label>
 
       <div className="field-wide">
-        <button type="submit">{application ? "Save application" : "Create application"}</button>
+        <button type="submit">
+          {application
+            ? (ru ? "Сохранить заявку" : "Save application")
+            : (ru ? "Создать заявку" : "Create application")}
+        </button>
       </div>
     </form>
   );
