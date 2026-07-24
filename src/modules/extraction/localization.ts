@@ -43,6 +43,7 @@ export const reviewStatusLabelsRu = {
   missing: "Значение отсутствует",
   review: "Требуется проверка",
   not_applicable: "Не требуется",
+  system_managed: "Назначается автоматически",
   optional_empty: "Необязательное поле",
 } as const;
 
@@ -55,6 +56,7 @@ export function extractionReasonRu(reason: string | null | undefined) {
     INVALID_FORMAT: "Неверный формат",
     MANUAL_REVIEW_REQUIRED: "Требуется проверка",
     NOT_FOUND: "Значение не найдено",
+    NOT_APPLICABLE: "Поле не применяется",
     OCR_SOURCE: "Требуется проверка распознанного текста",
     SOURCE_REQUIRED: "Не найден подтверждающий источник",
   };

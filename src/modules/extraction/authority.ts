@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { ContractExtraction, ExtractedValue } from "./schema";
+import { extractionFieldNames } from "./constants";
+import { missingExtractedValue, type ContractExtraction, type ExtractedValue } from "./schema";
 import { flattenExtraction, groupExtraction } from "./processing";
 
 export type AuthorityBasisKind =
@@ -21,6 +22,7 @@ type StoredField = {
   source_excerpt: string | null;
   confidence: number | null;
   requires_review: boolean;
+  conflict_detected: boolean;
 };
 
 function normalizeAuthorityText(value: unknown) {
@@ -69,7 +71,7 @@ function withFieldState(
     sourceExcerpt: null,
     confidence: 1,
     requiresReview: false,
-    reason: "NOT_FOUND",
+    reason: state === "not_applicable" ? "NOT_APPLICABLE" : "NOT_FOUND",
     fieldState: state,
   };
 }
@@ -142,27 +144,31 @@ function serializeDerivedField(fieldName: string, value: ExtractedValue) {
     source_excerpt: value.sourceExcerpt,
     confidence: value.confidence,
     requires_review: value.requiresReview,
+    conflict_detected: value.fieldState ? false : undefined,
   };
 }
 
 function storedToExtraction(fields: StoredField[]): ContractExtraction {
-  const values = Object.fromEntries(
-    fields.map((field) => [
-      field.field_name,
-      (field.structured_value ?? {
-        value: field.raw_value,
-        normalizedValue: field.raw_value,
-        rawValue: field.raw_value,
-        sourceType: field.source_type,
-        sourceId: field.source_id,
-        sourceMarker: field.source_marker,
-        sourceExcerpt: field.source_excerpt,
-        confidence: field.confidence ?? 0,
-        requiresReview: field.requires_review,
-        reason: null,
-      }) as ExtractedValue,
-    ]),
+  // Applications created before a field name existed in `extractionFieldNames`
+  // (or otherwise missing a row for some other reason) must still parse: start
+  // from a fully missing baseline and overlay whatever rows actually exist.
+  const values: Record<string, ExtractedValue> = Object.fromEntries(
+    extractionFieldNames.map((name) => [name, missingExtractedValue()]),
   );
+  for (const field of fields) {
+    values[field.field_name] = (field.structured_value ?? {
+      value: field.raw_value,
+      normalizedValue: field.raw_value,
+      rawValue: field.raw_value,
+      sourceType: field.source_type,
+      sourceId: field.source_id,
+      sourceMarker: field.source_marker,
+      sourceExcerpt: field.source_excerpt,
+      confidence: field.confidence ?? 0,
+      requiresReview: field.requires_review,
+      reason: null,
+    }) as ExtractedValue;
+  }
   return groupExtraction(values as never, [], []);
 }
 
@@ -173,7 +179,7 @@ export async function syncDerivedFieldRules(input: {
   const result = await input.admin
     .from("extracted_fields")
     .select(
-      "field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review",
+      "field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected",
     )
     .eq("application_id", input.applicationId);
   if (result.error) throw new Error("Не удалось загрузить извлечённые поля.");
@@ -190,28 +196,34 @@ export async function syncDerivedFieldRules(input: {
     const next = flat[fieldName];
     const stored = (result.data ?? []).find((field) => field.field_name === fieldName);
     const previous = (stored?.structured_value ?? null) as ExtractedValue | null;
+    const nextConflictDetected = next.fieldState ? false : (stored?.conflict_detected ?? false);
     const changed =
       next.fieldState !== (previous?.fieldState ?? null) ||
       next.normalizedValue !== (previous?.normalizedValue ?? null) ||
       next.rawValue !== (previous?.rawValue ?? null) ||
-      next.requiresReview !== (stored?.requires_review ?? true);
+      next.requiresReview !== (stored?.requires_review ?? true) ||
+      nextConflictDetected !== (stored?.conflict_detected ?? false);
     if (changed) {
       updates.push(serializeDerivedField(fieldName, next));
     }
   }
   for (const update of updates) {
+    const patch: Record<string, unknown> = {
+      structured_value: update.structured_value,
+      raw_value: update.raw_value,
+      source_type: update.source_type,
+      source_id: update.source_id,
+      source_marker: update.source_marker,
+      source_excerpt: update.source_excerpt,
+      confidence: update.confidence,
+      requires_review: update.requires_review,
+    };
+    if (update.conflict_detected !== undefined) {
+      patch.conflict_detected = update.conflict_detected;
+    }
     const persisted = await input.admin
       .from("extracted_fields")
-      .update({
-        structured_value: update.structured_value,
-        raw_value: update.raw_value,
-        source_type: update.source_type,
-        source_id: update.source_id,
-        source_marker: update.source_marker,
-        source_excerpt: update.source_excerpt,
-        confidence: update.confidence,
-        requires_review: update.requires_review,
-      })
+      .update(patch)
       .eq("application_id", input.applicationId)
       .eq("field_name", update.field_name);
     if (persisted.error) {

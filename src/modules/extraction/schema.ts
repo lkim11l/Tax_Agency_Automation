@@ -16,6 +16,7 @@ export const extractionReasonSchema = z.enum([
   "SOURCE_REQUIRED",
   "LOW_CONFIDENCE",
   "DIRECT_SOURCE",
+  "NOT_APPLICABLE",
 ]);
 
 export const sourceTypeSchema = z.enum([

@@ -43,7 +43,9 @@ function derivedFieldState(field: Field) {
 }
 
 function fieldStatus(field: Field, requiredFieldNames: ReadonlySet<string>) {
-  if (derivedFieldState(field)) return "not_applicable" as const;
+  const derived = derivedFieldState(field);
+  if (derived === "not_applicable") return "not_applicable" as const;
+  if (derived === "system_managed") return "system_managed" as const;
   if (!fieldValue(field)) {
     return requiredFieldNames.has(field.field_name)
       ? ("missing" as const)
@@ -215,10 +217,12 @@ export function ExtractionReviewPanel({
             const conflict = conflicts.find((item) => item.field_name === field.field_name);
             const emptyLabel =
               status === "not_applicable"
-                ? "Не требуется"
-                : status === "optional_empty"
-                  ? "Необязательное поле, не заполнено"
-                  : "Значение отсутствует";
+                ? "Не требуется при подписании на основании Устава"
+                : status === "system_managed"
+                  ? "Будет назначено при формировании проекта договора"
+                  : status === "optional_empty"
+                    ? "Необязательное поле, не заполнено"
+                    : "Значение отсутствует";
             return (
               <article className="document-card review-field-card" key={field.id}>
                 <div className="page-heading">
@@ -235,9 +239,11 @@ export function ExtractionReviewPanel({
                           ? reviewStatusLabelsRu.missing
                           : status === "not_applicable"
                             ? reviewStatusLabelsRu.not_applicable
-                            : status === "optional_empty"
-                              ? reviewStatusLabelsRu.optional_empty
-                              : reviewStatusLabelsRu.review}
+                            : status === "system_managed"
+                              ? reviewStatusLabelsRu.system_managed
+                              : status === "optional_empty"
+                                ? reviewStatusLabelsRu.optional_empty
+                                : reviewStatusLabelsRu.review}
                   </span>
                 </div>
                 <p className="muted">

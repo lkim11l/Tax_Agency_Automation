@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin.server";
 import { createDraft, recalculateCompleteness } from "@/modules/clarification/service";
 import { getRuleSet } from "@/modules/clarification/rules";
 import { parseAttachment } from "@/modules/documents/orchestrator";
+import { syncDerivedFieldRules } from "@/modules/extraction/authority";
 import {
   recordSafeFieldAcceptances,
 } from "@/modules/extraction/acceptance";
@@ -19,7 +20,7 @@ type ProcessingStage = {
   message: string;
 };
 
-async function inputFingerprint(applicationId: string, admin: SupabaseClient) {
+export async function inputFingerprint(applicationId: string, admin: SupabaseClient) {
   const [sources, application] = await Promise.all([
     loadExtractionSources(applicationId, admin),
     admin
@@ -151,6 +152,20 @@ export async function processApplication(input: {
   admin?: SupabaseClient;
 }) {
   const admin = input.admin ?? createAdminClient();
+
+  // Derived field rules (authority basis, contract date, ...) must be reconciled
+  // against the current extracted_fields state before any caching decision is
+  // made — otherwise a run-level cache hit (unchanged documents/emails/template)
+  // returns early and a stale completeness result keeps blocking on fields that
+  // no longer apply, including for applications processed before this helper
+  // existed.
+  await syncDerivedFieldRules({ applicationId: input.applicationId, admin });
+
+  const ruleSetId = await ruleSetForApplication(input.applicationId, admin);
+  const requiredFieldNames = new Set(
+    getRuleSet(ruleSetId).rules.filter((rule) => rule.required).map((rule) => rule.fieldName),
+  );
+
   const fingerprint = await inputFingerprint(input.applicationId, admin);
   const claim = await admin.rpc("claim_application_processing", {
     p_application_id: input.applicationId,
@@ -165,11 +180,23 @@ export async function processApplication(input: {
     status: string;
   };
   if (!claimData.claimed) {
+    // The heavy extraction/acceptance pipeline is skipped on a cache hit, but
+    // completeness must still reflect the derived-field sync above: its own
+    // fingerprint-based cache only reuses a prior run when nothing actually
+    // changed, so this never returns a stale result.
+    const completeness = await recalculateCompleteness({
+      applicationId: input.applicationId,
+      ruleSetId,
+      initiatedBy: input.actorId,
+      admin,
+    });
     return {
       runId: claimData.run_id,
       status: claimData.status,
       cacheHit: claimData.cache_hit,
       claimed: false,
+      completeness: completeness.percentage,
+      ready: completeness.ready,
     };
   }
 
@@ -229,10 +256,9 @@ export async function processApplication(input: {
     stages.extraction.status = "completed";
     await saveStages(claimData.run_id, stages, admin);
 
-    const ruleSetId = await ruleSetForApplication(input.applicationId, admin);
-    const requiredFieldNames = new Set(
-      getRuleSet(ruleSetId).rules.filter((rule) => rule.required).map((rule) => rule.fieldName),
-    );
+    // Extraction may re-derive authority/contract-date fields when it merges
+    // fresh candidates; sync once more so completeness sees the final state.
+    await syncDerivedFieldRules({ applicationId: input.applicationId, admin });
 
     stages.acceptance.status = "running";
     await saveStages(claimData.run_id, stages, admin);
