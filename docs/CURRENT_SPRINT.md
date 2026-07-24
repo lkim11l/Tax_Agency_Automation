@@ -48,7 +48,12 @@ business features.
 - [x] Add and apply a service-only production schema contract for delivery,
   clarification, contracts, completeness and extraction tables.
 - [x] Add unit, rendering and hosted schema/query regression tests.
-- [ ] Deploy the fix and verify the exact production application detail route.
+- [x] Deploy the fix and verify the exact production application detail route.
+
+Production acceptance passed on 2026-07-23 at
+`/applications/86f02c21-2813-437d-b973-f45c94f0956c`: authenticated HTTP 200,
+the application remained `REQ-2026-000273`, the missing draft rendered as an
+empty delivery state, and the schema error no longer reached the page.
 
 ## Phase 1
 
