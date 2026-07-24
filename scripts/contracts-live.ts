@@ -5,7 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "../src/lib/supabase/admin.server";
 import { recalculateCompleteness } from "../src/modules/clarification/service";
-import { contractPlaceholders } from "../src/modules/contracts/constants";
 import {
   approveTemplate,
   generateContract,
@@ -138,7 +137,12 @@ async function main() {
       templateType: "services",
       version: "1.0.0",
       requiredRuleSet: "standard-contract",
-      requiredPlaceholders: [...contractPlaceholders],
+      // Not the full contractPlaceholders set: approveTemplate now rejects
+      // required_fields naming a placeholder neither the rule set nor the
+      // system-managed exclusion list explains (Step 6 strategy B).
+      // seedFields(..., true) below still fills every one of them, so full
+      // generation is unaffected — this only trims required_fields.
+      requiredPlaceholders: [],
       filename: "phase6-synthetic-services.docx",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       content: createSyntheticContractTemplate(),

@@ -387,3 +387,23 @@ canonical delivery-draft column. A repository query incorrectly ordered by its
 DTO alias `draft_version`; the fix orders by `version`, preserves the alias at
 the application boundary, isolates delivery failures to that section, and adds
 a service-only hosted schema contract to detect future required-column drift.
+
+Production defect follow-up (contract generation, 2026-07-24): a specialist
+saw the fully generic "Не удалось подготовить договор" message instead of a
+specific reason. Root cause was two-fold: `begin_contract_generation`'s
+defense-in-depth staleness re-check raised a bare, unprefixed Postgres
+exception that bypassed `safeGenerationErrorMessage`'s `GENERATION_BLOCKED:`
+routing entirely, and `checkContractEligibility`'s own staleness check never
+considered `extracted_fields.updated_at`, so it could report `ready=true`
+right up until the DB claim disagreed. Fixed by prefixing known claim-RPC
+codes before rethrow, aligning eligibility's staleness definition with the
+RPC's, and fixing `safeGenerationErrorMessage`'s comma-split parsing of the
+compound `REQUIRED_RENDER_VALUE_MISSING:<field1>,<field2>` reason. Also moved
+required-render-value checking into `checkContractEligibility` itself
+(previously only `generateContract` checked it, after already claiming a
+run), added a template-approval guard rejecting `required_fields` the
+completeness rule set can't explain, and added an explicit
+`LEGALLY_OPTIONAL_PLACEHOLDERS` allowlist so an admin's oversight in
+`required_fields` can no longer ship a contract with a silently blank clause.
+A separate, independent fix in the same session added feminine Russian name
+declension — unrelated to this incident, kept and fully test-covered.

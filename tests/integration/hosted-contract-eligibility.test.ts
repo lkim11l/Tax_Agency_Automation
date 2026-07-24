@@ -8,7 +8,6 @@ import {
   checkContractEligibility,
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
-import { contractPlaceholders } from "@/modules/contracts/constants";
 import { recordSafeFieldAcceptances } from "@/modules/extraction/acceptance";
 
 function required(name: string) {
@@ -93,7 +92,15 @@ describe.sequential("contract generation eligibility after safe field acceptance
         templateType: "services",
         version: "1.0.0",
         requiredRuleSet: ruleSetId,
-        requiredPlaceholders: [...contractPlaceholders],
+        // Not the full contractPlaceholders set: approveTemplate now rejects
+        // required_fields naming a placeholder neither the rule set nor the
+        // system-managed exclusion list explains (Step 6 strategy B) — these
+        // scenarios exercise fingerprint/staleness/conflict eligibility
+        // mechanics, not required_fields content, so leave required_fields
+        // to whatever uploadTemplateVersion unions in on its own
+        // (MANDATORY_PLACEHOLDERS). The synthetic fixture's DOCX text still
+        // contains every placeholder regardless of what's "required".
+        requiredPlaceholders: [],
         filename: `${code}.docx`,
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         content: createSyntheticContractTemplate(),

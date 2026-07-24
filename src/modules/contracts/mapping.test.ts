@@ -98,6 +98,34 @@ describe("deterministic contract value mapping", () => {
     })).toThrow("SIGNER_POSITION_DECLENSION_UNRELIABLE");
   });
 
+  it("blocks generation instead of guessing when the authority basis cannot be reliably declined", () => {
+    expect(() => mapContractValues({
+      applicationNumber: "REQ-1",
+      contractNumber: "TAA-2026-000001",
+      generatedDate: "2026-07-23",
+      fields: {
+        signer_position: "Генеральный директор",
+        signer_name: "Иванов Иван Иванович",
+        signer_authority: "устное распоряжение учредителя",
+      },
+    })).toThrow("SIGNER_AUTHORITY_DECLENSION_UNRELIABLE");
+  });
+
+  it("fills the genitive preamble fields for a reliably declinable feminine signer", () => {
+    const values = mapContractValues({
+      applicationNumber: "REQ-1",
+      contractNumber: "TAA-2026-000001",
+      generatedDate: "2026-07-23",
+      fields: {
+        signer_position: "Генеральный директор",
+        signer_name: "Иванова Мария Ивановна",
+        signer_authority: "Устав",
+      },
+    });
+    expect(values.signer_name).toBe("Иванова Мария Ивановна");
+    expect(values.signer_name_genitive).toBe("Ивановой Марии Ивановны");
+  });
+
   it("leaves genitive fields empty rather than throwing when no signer data is present", () => {
     const values = mapContractValues({
       applicationNumber: "REQ-1",

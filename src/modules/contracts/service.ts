@@ -16,9 +16,13 @@ import { recalculateCompleteness } from "@/modules/clarification/service";
 import {
   CONTRACT_BUCKET,
   DOCX_MIME,
+  LEGALLY_OPTIONAL_PLACEHOLDERS,
   MANDATORY_PLACEHOLDERS,
   MAPPING_VERSION,
   PLACEHOLDER_SCHEMA_VERSION,
+  PLACEHOLDER_TO_EXTRACTION_FIELD,
+  SYSTEM_MANAGED_PLACEHOLDERS,
+  type ContractPlaceholder,
 } from "./constants";
 import {
   renderDocxTemplate,
@@ -43,6 +47,53 @@ async function executionContext(execution?: Execution) {
 function checksum(content: Buffer) {
   return createHash("sha256").update(content).digest("hex");
 }
+
+// mapContractValues intentionally throws a plain Error with one of these
+// exact machine codes for data it cannot safely render (see mapping.ts).
+// Anything else (a defensive/unexpected throw) collapses to a generic code
+// so the caller never has to guess what an arbitrary message means.
+const MAPPING_BLOCKING_CODES = new Set([
+  "CONTRACT_AMOUNT_INVALID",
+  "AMOUNT_WORDS_UNSUPPORTED_CURRENCY",
+  "SIGNER_POSITION_DECLENSION_UNRELIABLE",
+  "SIGNER_NAME_DECLENSION_UNRELIABLE",
+  "SIGNER_AUTHORITY_DECLENSION_UNRELIABLE",
+]);
+
+// Wraps mapContractValues so a known, safe-to-explain failure (unsupported
+// currency, a signer name/position/authority this deterministic renderer
+// cannot reliably decline, ...) reaches the caller as a GENERATION_BLOCKED
+// reason — the same channel checkContractEligibility already uses — instead
+// of a raw Error whose message the UI has no choice but to hide behind a
+// generic "try again or contact an administrator".
+function mapContractValuesOrBlock(
+  input: Parameters<typeof mapContractValues>[0],
+): ReturnType<typeof mapContractValues> {
+  try {
+    return mapContractValues(input);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const code = MAPPING_BLOCKING_CODES.has(message) ? message : "MAPPING_VALIDATION_FAILED";
+    throw new Error(`GENERATION_BLOCKED:${code}`);
+  }
+}
+
+// begin_contract_generation re-checks readiness/staleness inside the same
+// advisory-locked transaction that claims the run — a defense-in-depth
+// re-check against exactly the race this closes (e.g. a field gets manually
+// corrected between checkContractEligibility and this call). It raises a
+// bare Postgres exception whose message is one of these codes. These are the
+// same "blocking reason" vocabulary as `source.blocking` above, so they must
+// go through the identical GENERATION_BLOCKED channel — otherwise
+// safeGenerationErrorMessage's prefix check misses them entirely and every
+// one of them (however well-diagnosed) collapses to the fully generic
+// fallback string, even though a specific Russian message already exists.
+const CLAIM_BLOCKING_CODES = new Set([
+  "TEMPLATE_NOT_APPROVED",
+  "APPLICATION_NOT_READY",
+  "APPLICATION_HAS_BLOCKING_FIELDS",
+  "COMPLETENESS_STALE",
+]);
 
 function safeFilename(value: string) {
   return value
@@ -226,17 +277,43 @@ export async function uploadTemplateVersion(input: {
   }
 }
 
+// Strategy B (defense in depth for Step 6): required_fields naming a
+// contractPlaceholder that neither the template's own completeness rule set
+// covers nor the system-managed exclusion list explains is a template an
+// admin can approve today and have generation silently discover the gap on
+// tomorrow (exactly the shape of gap this incident's static hypothesis
+// worried about) — catch it here instead, before the template ever becomes
+// approved/active.
+function findUnrecognizedRequiredFields(requiredFields: string[], ruleSetId: string): string[] {
+  const ruleSet = getRuleSet(ruleSetId);
+  const ruleSetFieldNames = new Set(ruleSet.rules.map((rule) => rule.fieldName));
+  return requiredFields.filter((name) => {
+    if (SYSTEM_MANAGED_PLACEHOLDERS.includes(name as ContractPlaceholder)) return false;
+    const extractionFieldName = PLACEHOLDER_TO_EXTRACTION_FIELD[name as ContractPlaceholder] ?? name;
+    return !ruleSetFieldNames.has(extractionFieldName);
+  });
+}
+
 export async function approveTemplate(templateId: string, execution?: Execution) {
   const context = await executionContext(execution);
   if (context.role !== "admin") throw new Error("Administrator access is required.");
   const template = await context.admin
     .from("contract_templates")
-    .select("id,validation_report")
+    .select("id,validation_report,required_fields,required_rule_set")
     .eq("id", templateId)
     .single();
   if (template.error || !template.data) throw new Error("Template not found.");
   const report = template.data.validation_report as TemplateValidationReport;
   if (!report.valid) throw new Error("Template has blocking validation errors.");
+  const requiredFields = Array.isArray(template.data.required_fields)
+    ? (template.data.required_fields as string[])
+    : [];
+  const unrecognized = findUnrecognizedRequiredFields(requiredFields, template.data.required_rule_set as string);
+  if (unrecognized.length) {
+    throw new Error(
+      `Template requires fields the completeness rule set never checks and that are not system-managed: ${unrecognized.join(", ")}. Add a completeness rule for them or remove them from required_fields before approving.`,
+    );
+  }
   const changed = await context.admin.from("contract_templates").update({
     status: "approved",
     is_active: true,
@@ -392,7 +469,7 @@ async function loadGenerationSource(
       admin
         .from("extracted_fields")
         .select(
-          "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected,manually_corrected",
+          "id,field_name,structured_value,raw_value,source_type,source_id,source_marker,source_excerpt,confidence,requires_review,conflict_detected,manually_corrected,updated_at",
         )
         .eq("application_id", applicationId),
       admin
@@ -406,7 +483,7 @@ async function loadGenerationSource(
   const loadError = fieldsResult.error ?? acceptancesResult.error ?? extraction.error ?? newerEmails.error ?? newerAttachments.error;
   if (loadError) throw new Error("Unable to load contract generation source.");
 
-  const rawFields = (fieldsResult.data ?? []) as CompletenessSourceField[];
+  const rawFields = (fieldsResult.data ?? []) as (CompletenessSourceField & { updated_at: string })[];
   const rawAcceptances = (acceptancesResult.data ?? []) as CompletenessAcceptanceRecord[];
   // The one and only fingerprint algorithm — identical to the one
   // `recalculateCompleteness` uses, so a completeness run it just produced
@@ -497,12 +574,84 @@ async function loadGenerationSource(
   ) {
     blocking.push("COMPLETENESS_STALE");
   }
+  // begin_contract_generation (the claim RPC) independently re-checks
+  // staleness against every extracted_fields.updated_at vs. the completeness
+  // run's own created_at — a value can be corrected (e.g. a specialist fixes
+  // authority_document) without changing the completeness fingerprint (same
+  // normalized value, just re-confirmed/re-touched), so the fingerprint-based
+  // check above never catches it. Without this, checkContractEligibility
+  // reports ready=true right up until the DB claim rejects it, and the
+  // specialist sees a failure the eligibility check should have shown them
+  // up front.
+  const completenessCreatedAt = new Date(completenessRow.created_at).getTime();
+  if (
+    !blocking.includes("COMPLETENESS_STALE") &&
+    rawFields.some((field) => new Date(field.updated_at).getTime() > completenessCreatedAt)
+  ) {
+    blocking.push("COMPLETENESS_STALE");
+  }
   const mappedFields = Object.fromEntries(
     rawFields.map((field) => [
       field.field_name,
       (field.structured_value as Record<string, unknown> | null)?.normalizedValue ?? field.raw_value,
     ]),
   ) as Record<string, string | number | null>;
+
+  // Required-render-value preview (ADR-per-ARCHITECTURE.md Phase 6: eligibility
+  // includes a "required-value preview" step, not just completeness). Compute
+  // this here — once — so both checkContractEligibility and generateContract
+  // see the identical answer, instead of generateContract discovering a
+  // missing client_* field (or an undeclinable signer name/position/authority)
+  // only after it has already claimed a generation run.
+  let missingRenderFields: string[] = [];
+  try {
+    const previewValues = mapContractValuesOrBlock({
+      applicationNumber: application.data.application_number,
+      contractNumber: "TAA-PENDING",
+      generatedDate: getProjectDateIso(),
+      fields: mappedFields,
+    });
+    const requiredPlaceholders = Array.isArray(template.data.required_fields)
+      ? (template.data.required_fields as string[])
+      : [];
+    // required_fields is an admin's fallible checklist from upload time, not
+    // ground truth — validateDocxTemplate already recorded every placeholder
+    // the DOCX text actually contains (variable_schema.placeholders), and
+    // never required that set to be a subset of required_fields. Union both,
+    // minus the explicit optional allowlist, so a template that references
+    // {{client_short_name}} in its text still blocks on a missing value even
+    // if the uploading admin forgot to tick that box (Step 7).
+    const templatePlaceholders = Array.isArray(
+      (template.data.variable_schema as { placeholders?: unknown } | null)?.placeholders,
+    )
+      ? ((template.data.variable_schema as { placeholders: string[] }).placeholders)
+      : [];
+    // Deliberately no requiredUnlessAll-style substitution here (unlike
+    // rules.ts's completeness rule for performance_period_text): the actual
+    // DOCX renderer (renderDocxTemplate in ./docx.ts) has no concept of one
+    // placeholder substituting for another — if a template's text literally
+    // contains {{performance_period_text}}, it needs that exact value
+    // regardless of whether performance_start_date/end_date are also
+    // present, or rendering throws PLACEHOLDER_VALUE_MISSING. Eligibility
+    // must reflect that renderer's real requirement, not the rule engine's
+    // more lenient "either is fine" question-asking logic — a template that
+    // doesn't textually reference performance_period_text at all simply
+    // never puts it in `templatePlaceholders`, and this check correctly
+    // leaves it alone.
+    const mustRenderNonEmpty = [...new Set([...requiredPlaceholders, ...templatePlaceholders])].filter(
+      (name) => !LEGALLY_OPTIONAL_PLACEHOLDERS.includes(name as ContractPlaceholder),
+    );
+    missingRenderFields = mustRenderNonEmpty.filter(
+      (name) => !previewValues[name as keyof typeof previewValues],
+    );
+    if (missingRenderFields.length) blocking.push("REQUIRED_RENDER_VALUE_MISSING");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    blocking.push(
+      message.startsWith("GENERATION_BLOCKED:") ? message.slice("GENERATION_BLOCKED:".length) : "MAPPING_VALIDATION_FAILED",
+    );
+  }
+
   return {
     application: application.data,
     template: template.data,
@@ -510,6 +659,7 @@ async function loadGenerationSource(
     fields: mappedFields,
     fingerprint,
     blocking,
+    missingRenderFields,
     extractionRunId: extraction.data?.id ?? null,
   };
 }
@@ -524,10 +674,13 @@ export async function checkContractEligibility(
   return {
     ready: source.blocking.length === 0,
     blockingReasons: source.blocking,
+    missingRenderFields: source.missingRenderFields,
     completenessRunId: source.completeness.id as string,
     sourceFingerprint: source.fingerprint,
   };
 }
+
+export type ContractEligibility = Awaited<ReturnType<typeof checkContractEligibility>>;
 
 export async function generateContract(input: {
   applicationId: string;
@@ -539,6 +692,12 @@ export async function generateContract(input: {
   if (input.force && context.role !== "admin") throw new Error("Administrator access is required for force regeneration.");
   const source = await loadGenerationSource(context.admin, input.applicationId, input.templateId, context.actorId);
   if (source.blocking.length) {
+    // checkContractEligibility already computed this exact same `blocking`
+    // array (loadGenerationSource is the one and only place either function
+    // calls) — this fails fast, before begin_contract_generation claims a
+    // run, for anything eligibility could already have told the caller,
+    // including a missing required render value or an undeclinable
+    // signer name/position/authority.
     await audit(context.admin, {
       actorId: context.actorId,
       applicationId: input.applicationId,
@@ -551,58 +710,23 @@ export async function generateContract(input: {
         source_fingerprint: source.fingerprint,
         safe_error_code: "GENERATION_BLOCKED",
         blocking_reasons: source.blocking,
+        ...(source.missingRenderFields.length ? { missing_render_fields: source.missingRenderFields } : {}),
       },
     });
-    throw new Error(`GENERATION_BLOCKED:${source.blocking.join(",")}`);
+    // Carry the actual missing field names on the one reason that has them —
+    // everything else in `blocking` is already a bare, self-describing code.
+    // Reasons are joined with ";", never ",": REQUIRED_RENDER_VALUE_MISSING's
+    // own field list is comma-separated, and it can appear alongside other
+    // reasons here — a plain "," join would make the two indistinguishable
+    // again (see safeGenerationErrorMessage in ./actions.ts).
+    const reasons = source.blocking.map((reason) =>
+      reason === "REQUIRED_RENDER_VALUE_MISSING"
+        ? `REQUIRED_RENDER_VALUE_MISSING:${source.missingRenderFields.join(",")}`
+        : reason,
+    );
+    throw new Error(`GENERATION_BLOCKED:${reasons.join(";")}`);
   }
   const generatedDate = getProjectDateIso();
-  let previewValues: ReturnType<typeof mapContractValues>;
-  try {
-    previewValues = mapContractValues({
-      applicationNumber: source.application.application_number,
-      contractNumber: "TAA-PENDING",
-      generatedDate,
-      fields: source.fields,
-    });
-  } catch (error) {
-    await audit(context.admin, {
-      actorId: context.actorId,
-      applicationId: input.applicationId,
-      entityType: "application",
-      entityId: input.applicationId,
-      action: "contract.generation_failed",
-      metadata: {
-        template_id: input.templateId,
-        completeness_run_id: source.completeness.id,
-        source_fingerprint: source.fingerprint,
-        safe_error_code: error instanceof Error ? error.message : "MAPPING_VALIDATION_FAILED",
-      },
-    });
-    throw error;
-  }
-  const requiredPlaceholders = Array.isArray(source.template.required_fields)
-    ? source.template.required_fields as string[]
-    : [];
-  const missingRequired = requiredPlaceholders.filter(
-    (name) => !previewValues[name as keyof typeof previewValues],
-  );
-  if (missingRequired.length) {
-    await audit(context.admin, {
-      actorId: context.actorId,
-      applicationId: input.applicationId,
-      entityType: "application",
-      entityId: input.applicationId,
-      action: "contract.generation_failed",
-      metadata: {
-        template_id: input.templateId,
-        completeness_run_id: source.completeness.id,
-        source_fingerprint: source.fingerprint,
-        safe_error_code: "REQUIRED_RENDER_VALUE_MISSING",
-        missing_placeholders: missingRequired,
-      },
-    });
-    throw new Error(`GENERATION_BLOCKED:REQUIRED_RENDER_VALUE_MISSING:${missingRequired.join(",")}`);
-  }
   const idempotencyKey = createHash("sha256").update([
     input.applicationId,
     input.templateId,
@@ -624,7 +748,30 @@ export async function generateContract(input: {
     p_force: input.force ?? false,
     p_force_reason: input.forceReason ?? null,
   });
-  if (begin.error || !begin.data) throw new Error(begin.error?.message ?? "Generation claim failed.");
+  if (begin.error || !begin.data) {
+    const code = begin.error?.message?.trim() ?? "";
+    // Before this audit write existed, a rejection here (the exact bug this
+    // incident traced to — see CLAIM_BLOCKING_CODES above) left no
+    // audit_events row at all: not just a generic user-facing message, but a
+    // silent gap in the "every action is auditable" guarantee (AGENTS.md).
+    await audit(context.admin, {
+      actorId: context.actorId,
+      applicationId: input.applicationId,
+      entityType: "application",
+      entityId: input.applicationId,
+      action: "contract.generation_failed",
+      metadata: {
+        template_id: input.templateId,
+        completeness_run_id: source.completeness.id,
+        source_fingerprint: source.fingerprint,
+        safe_error_code: CLAIM_BLOCKING_CODES.has(code) ? "GENERATION_BLOCKED" : "GENERATION_CLAIM_FAILED",
+        blocking_reasons: CLAIM_BLOCKING_CODES.has(code) ? [code] : [],
+        claim_error: code || null,
+      },
+    });
+    if (CLAIM_BLOCKING_CODES.has(code)) throw new Error(`GENERATION_BLOCKED:${code}`);
+    throw new Error(begin.error?.message ?? "Generation claim failed.");
+  }
   const claim = begin.data as {
     run_id: string;
     claimed: boolean;
@@ -643,7 +790,7 @@ export async function generateContract(input: {
     if (download.error || !download.data) throw new Error("TEMPLATE_DOWNLOAD_FAILED");
     const templateContent = Buffer.from(await download.data.arrayBuffer());
     if (checksum(templateContent) !== source.template.checksum) throw new Error("TEMPLATE_CHECKSUM_MISMATCH");
-    const renderedValues = mapContractValues({
+    const renderedValues = mapContractValuesOrBlock({
       applicationNumber: source.application.application_number,
       contractNumber: claim.contract_number,
       generatedDate,

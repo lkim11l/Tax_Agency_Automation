@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { safeBlockingMessage, safeGenerationErrorMessage } from "./messages";
 import { checkContractEligibility, generateContract } from "./service";
 
 function target(id: string, type: "error" | "success", message: string) {
@@ -16,58 +17,6 @@ const requestSchema = z.object({
   force: z.enum(["0", "1"]).default("0"),
   forceReason: z.string().trim().max(1000).optional(),
 });
-
-const STALE_FINGERPRINT_REASONS = new Set(["SOURCE_FINGERPRINT_MISMATCH", "RULE_SET_MISMATCH"]);
-
-// Never surface internal blocking codes (GENERATION_BLOCKED:..., raw error
-// messages) to the user — map every reason to a safe Russian description and
-// log the technical detail server-side only.
-function safeBlockingMessage(reasons: string[]): string {
-  // Checked first and on its own: a template that failed the runtime
-  // content re-verification (mock markers, highlighting, missing mandatory
-  // placeholders, checksum mismatch, outdated schema) is a security
-  // finding, not an ordinary "not ready yet" state — status=approved and
-  // is_active=true never override this.
-  if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
-    return "Выбранный шаблон договора больше не соответствует требованиям безопасности. Администратору необходимо загрузить и одобрить новую версию шаблона.";
-  }
-  if (reasons.some((reason) => STALE_FINGERPRINT_REASONS.has(reason))) {
-    return "Данные заявки изменились или были проверены по другому шаблону. Комплектность будет пересчитана автоматически.";
-  }
-  if (reasons.includes("TEMPLATE_NOT_APPROVED") || reasons.includes("TEMPLATE_VALIDATION_INVALID")) {
-    return "Шаблон договора ещё не одобрен или не прошёл проверку.";
-  }
-  if (reasons.includes("UNRESOLVED_CONFLICT")) {
-    return "В данных заявки есть неразрешённые конфликты значений — требуется проверка специалистом.";
-  }
-  if (reasons.includes("REVIEW_REQUIRED_FIELD") || reasons.includes("COMPLETENESS_FIELD_BLOCKED")) {
-    return "Есть данные заявки, требующие проверки специалистом.";
-  }
-  if (reasons.includes("COMPLETENESS_STALE")) {
-    return "Поступили новые данные заявки — требуется повторная обработка.";
-  }
-  if (reasons.includes("APPLICATION_NOT_READY")) {
-    return "Не все обязательные данные заявки подтверждены.";
-  }
-  return "Формирование договора заблокировано проверками безопасности.";
-}
-
-function safeGenerationErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
-  if (message.startsWith("GENERATION_BLOCKED:")) {
-    const reasons = message.slice("GENERATION_BLOCKED:".length).split(",");
-    if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
-      return safeBlockingMessage(reasons);
-    }
-    if (reasons.some((reason) => STALE_FINGERPRINT_REASONS.has(reason))) {
-      // loadGenerationSource already tried an automatic recalculation before
-      // returning this — if the mismatch survived that, it needs a human.
-      return "Не удалось подготовить договор. Повторно обработайте заявку или обратитесь к администратору.";
-    }
-    return safeBlockingMessage(reasons);
-  }
-  return "Не удалось подготовить договор. Повторно обработайте заявку или обратитесь к администратору.";
-}
 
 export async function checkContractEligibilityAction(formData: FormData) {
   const parsed = requestSchema.safeParse({
@@ -84,6 +33,7 @@ export async function checkContractEligibilityAction(formData: FormData) {
         applicationId: parsed.data.applicationId,
         templateId: parsed.data.templateId,
         blockingReasons: result.blockingReasons,
+        missingRenderFields: result.missingRenderFields,
       });
     }
     destination = target(
@@ -91,7 +41,7 @@ export async function checkContractEligibilityAction(formData: FormData) {
       result.ready ? "success" : "error",
       result.ready
         ? "Заявка готова к формированию договора."
-        : safeBlockingMessage(result.blockingReasons),
+        : safeBlockingMessage(result.blockingReasons, result.missingRenderFields),
     );
   } catch (error) {
     console.error("checkContractEligibilityAction failed", error);

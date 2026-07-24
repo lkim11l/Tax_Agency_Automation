@@ -47,7 +47,7 @@ export function declineSignerPositionGenitive(position: unknown): DeclensionOutc
 // genitive form. First names are the least regular part of a full name
 // (Никита, Илья, Данила behave like feminine-pattern nouns; others are
 // fully regular) — a whitelist avoids ever guessing wrong.
-const GIVEN_NAME_GENITIVE: Record<string, string> = {
+const GIVEN_NAME_GENITIVE_MASCULINE: Record<string, string> = {
   "александр": "александра", "алексей": "алексея", "анатолий": "анатолия",
   "андрей": "андрея", "антон": "антона", "аркадий": "аркадия",
   "артём": "артёма", "артем": "артема", "борис": "бориса",
@@ -69,11 +69,44 @@ const GIVEN_NAME_GENITIVE: Record<string, string> = {
   "юрий": "юрия", "ярослав": "ярослава",
 };
 
+// Closed dictionary of common Russian feminine given names with a KNOWN
+// genitive form, mirroring GIVEN_NAME_GENITIVE_MASCULINE. Without this, any
+// application whose signer is a woman was previously ALWAYS unreliable
+// (declinePatronymicMasculine can never match a "-овна/-евна/-ична"
+// patronymic), silently blocking contract generation for female signers.
+const GIVEN_NAME_GENITIVE_FEMININE: Record<string, string> = {
+  "александра": "александры", "алина": "алины", "алла": "аллы",
+  "алёна": "алёны", "алена": "алены", "анастасия": "анастасии",
+  "ангелина": "ангелины", "анна": "анны", "валентина": "валентины",
+  "валерия": "валерии", "вера": "веры", "вероника": "вероники",
+  "виктория": "виктории", "галина": "галины", "дарья": "дарьи",
+  "диана": "дианы", "евгения": "евгении", "екатерина": "екатерины",
+  "елена": "елены", "елизавета": "елизаветы", "жанна": "жанны",
+  "зоя": "зои", "инна": "инны", "ирина": "ирины", "карина": "карины",
+  "кристина": "кристины", "ксения": "ксении", "лариса": "ларисы",
+  "любовь": "любови", "людмила": "людмилы", "маргарита": "маргариты",
+  "марина": "марины", "мария": "марии", "надежда": "надежды",
+  "наталья": "натальи", "нина": "нины", "оксана": "оксаны",
+  "ольга": "ольги", "полина": "полины", "раиса": "раисы",
+  "регина": "регины", "светлана": "светланы", "софия": "софии",
+  "софья": "софьи", "тамара": "тамары", "татьяна": "татьяны",
+  "юлия": "юлии", "яна": "яны",
+};
+
 // Regular declension for masculine patronymics: every standard Russian
 // masculine patronymic ends in "-ович"/"-евич"/"-ич" and genitivizes by
 // appending "а" — no known exceptions, safe to apply generically.
-function declinePatronymic(value: string): string | null {
+function declinePatronymicMasculine(value: string): string | null {
   if (/(ович|евич|ич)$/iu.test(value)) return `${value}а`;
+  return null;
+}
+
+// Regular declension for feminine patronymics: every standard Russian
+// feminine patronymic ends in "-овна"/"-евна"/"-ична" and genitivizes by
+// replacing the final "а" with "ы" (Ивановна → Ивановны, Кузьминична →
+// Кузьминичны) — no known exceptions, safe to apply generically.
+function declinePatronymicFeminine(value: string): string | null {
+  if (/(овна|евна|ична)$/iu.test(value)) return value.replace(/а$/iu, "ы");
   return null;
 }
 
@@ -81,29 +114,61 @@ function declinePatronymic(value: string): string | null {
 // surnames (the "-ов/-ев/-ёв/-ин/-ын" pattern, e.g. Иванов, Петров,
 // Кузнецов, Пушкин). Adjectival surnames ("-ский/-цкий", e.g. Высоцкий)
 // decline like adjectives. Anything else is left unreliable.
-function declineSurname(value: string): string | null {
+function declineSurnameMasculine(value: string): string | null {
   if (/(ский|цкий)$/iu.test(value)) return value.replace(/(ский|цкий)$/iu, (match) => `${match.slice(0, -2)}ого`);
   if (/(ов|ев|ёв|ин|ын)$/iu.test(value)) return `${value}а`;
   return null;
 }
 
+// Feminine counterpart of declineSurnameMasculine. Possessive-pattern
+// surnames ("-ова/-ева/-ёва/-ина/-ына", e.g. Иванова, Кузнецова) decline by
+// replacing the final "а" with "ой". Adjectival surnames ("-ская/-цкая",
+// e.g. Высоцкая) decline like adjectives, to "-ской/-цкой".
+function declineSurnameFeminine(value: string): string | null {
+  if (/(ская|цкая)$/iu.test(value)) return value.replace(/(ск|цк)ая$/iu, (_match, stem) => `${stem}ой`);
+  if (/(ова|ева|ёва|ина|ына)$/iu.test(value)) return `${value.slice(0, -1)}ой`;
+  return null;
+}
+
 // "Фамилия Имя Отчество" — every part must decline reliably or the whole
 // name is left unreliable (never mix a declined part with a guessed one).
+// Gender is inferred from the patronymic ending (the only part with an
+// unambiguous, mechanically detectable masculine/feminine form) and the
+// same gender is then required consistently from the surname and given name.
 export function declineSignerNameGenitive(fullName: unknown): DeclensionOutcome {
   const normalized = normalize(fullName);
   const parts = normalized.split(" ").filter(Boolean);
   if (parts.length !== 3) return unreliable();
   const [surname, given, patronymic] = parts;
-  const declinedSurname = declineSurname(surname);
-  const declinedGiven = GIVEN_NAME_GENITIVE[given.toLocaleLowerCase("ru-RU")];
-  const declinedPatronymic = declinePatronymic(patronymic);
-  if (!declinedSurname || !declinedGiven || !declinedPatronymic) return unreliable();
-  const givenCased = matchCase(given, declinedGiven);
-  return reliable([
-    matchCase(surname, declinedSurname),
-    givenCased,
-    matchCase(patronymic, declinedPatronymic),
-  ].join(" "));
+  const givenLower = given.toLocaleLowerCase("ru-RU");
+
+  const declinedPatronymicMasculine = declinePatronymicMasculine(patronymic);
+  if (declinedPatronymicMasculine) {
+    const declinedSurname = declineSurnameMasculine(surname);
+    const declinedGiven = GIVEN_NAME_GENITIVE_MASCULINE[givenLower];
+    if (declinedSurname && declinedGiven) {
+      return reliable([
+        matchCase(surname, declinedSurname),
+        matchCase(given, declinedGiven),
+        matchCase(patronymic, declinedPatronymicMasculine),
+      ].join(" "));
+    }
+  }
+
+  const declinedPatronymicFeminine = declinePatronymicFeminine(patronymic);
+  if (declinedPatronymicFeminine) {
+    const declinedSurname = declineSurnameFeminine(surname);
+    const declinedGiven = GIVEN_NAME_GENITIVE_FEMININE[givenLower];
+    if (declinedSurname && declinedGiven) {
+      return reliable([
+        matchCase(surname, declinedSurname),
+        matchCase(given, declinedGiven),
+        matchCase(patronymic, declinedPatronymicFeminine),
+      ].join(" "));
+    }
+  }
+
+  return unreliable();
 }
 
 function matchCase(source: string, declined: string) {

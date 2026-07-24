@@ -208,7 +208,12 @@ describe.sequential("template runtime security re-validation before generation",
         templateType: "services",
         version: "1.0.0",
         requiredRuleSet: "standard-contract",
-        requiredPlaceholders: [...contractPlaceholders],
+        // Not the full contractPlaceholders set: approveTemplate now rejects
+        // required_fields naming a placeholder neither the rule set nor the
+        // system-managed exclusion list explains (Step 6 strategy B). These
+        // scenarios test template security/checksum revalidation, not
+        // required_fields content.
+        requiredPlaceholders: [],
         filename: "compliant.docx",
         mimeType: DOCX_MIME,
         content: createSyntheticContractTemplate(),
@@ -237,7 +242,12 @@ describe.sequential("template runtime security re-validation before generation",
         templateType: "services",
         version: "1.0.0",
         requiredRuleSet: "standard-contract",
-        requiredPlaceholders: [...contractPlaceholders],
+        // Not the full contractPlaceholders set: approveTemplate now rejects
+        // required_fields naming a placeholder neither the rule set nor the
+        // system-managed exclusion list explains (Step 6 strategy B). These
+        // scenarios test template security/checksum revalidation, not
+        // required_fields content.
+        requiredPlaceholders: [],
         filename: "tampered.docx",
         mimeType: DOCX_MIME,
         content: createSyntheticContractTemplate(),

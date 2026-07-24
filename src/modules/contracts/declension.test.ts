@@ -66,6 +66,45 @@ describe("declineSignerNameGenitive", () => {
     expect(declineSignerNameGenitive("Иванов Иван").reliable).toBe(false);
     expect(declineSignerNameGenitive("Иванов Иван Иванович Второй").reliable).toBe(false);
   });
+
+  it("declines a known feminine full name", () => {
+    expect(declineSignerNameGenitive("Иванова Мария Ивановна")).toEqual({
+      reliable: true,
+      value: "Ивановой Марии Ивановны",
+    });
+  });
+
+  it("declines other regular feminine -ова/-ева/-ина surnames and patronymics", () => {
+    expect(declineSignerNameGenitive("Петрова Елена Сергеевна")).toEqual({
+      reliable: true,
+      value: "Петровой Елены Сергеевны",
+    });
+    expect(declineSignerNameGenitive("Пушкина Анна Кузьминична")).toEqual({
+      reliable: true,
+      value: "Пушкиной Анны Кузьминичны",
+    });
+  });
+
+  it("declines adjectival feminine -ская/-цкая surnames", () => {
+    expect(declineSignerNameGenitive("Высоцкая Ольга Семёновна")).toEqual({
+      reliable: true,
+      value: "Высоцкой Ольги Семёновны",
+    });
+  });
+
+  it("leaves a feminine name with an unlisted given name unreliable", () => {
+    expect(declineSignerNameGenitive("Иванова Радомира Ивановна")).toEqual({
+      reliable: false,
+      value: null,
+    });
+  });
+
+  it("leaves a feminine name with an irregular surname unreliable", () => {
+    expect(declineSignerNameGenitive("Ким Мария Ивановна")).toEqual({
+      reliable: false,
+      value: null,
+    });
+  });
 });
 
 describe("declineSignerAuthorityGenitive", () => {
