@@ -278,6 +278,60 @@ export async function uploadTemplateVersion(input: {
   }
 }
 
+// Lets an admin fix name/description/required_fields without re-uploading the
+// file — re-validates against the SAME already-stored DOCX (never re-checks
+// checksum/content safety, since the file itself is untouched) and updates
+// status/validation_report exactly like a fresh upload would. Only allowed
+// before approval: an approved template's file+metadata pairing is what
+// ADR-016 treats as the immutable, audited record — editing that requires a
+// new version, not a silent in-place change.
+export async function updateTemplateMetadata(input: {
+  templateId: string;
+  name: string;
+  description: string | null;
+  requiredPlaceholders: string[];
+}, execution?: Execution) {
+  const context = await executionContext(execution);
+  if (context.role !== "admin") throw new Error("Administrator access is required.");
+  const current = await context.admin
+    .from("contract_templates")
+    .select("id,status,storage_path,mime_type")
+    .eq("id", input.templateId)
+    .single();
+  if (current.error || !current.data) throw new Error("Template not found.");
+  if (!["draft", "awaiting_approval"].includes(current.data.status)) {
+    throw new Error("Only a draft or awaiting-approval template can be edited — upload a new version instead.");
+  }
+  if (!current.data.storage_path) throw new Error("Template has no stored file.");
+  const download = await context.admin.storage.from(CONTRACT_BUCKET).download(current.data.storage_path);
+  if (download.error || !download.data) throw new Error("Unable to download template file.");
+  const content = Buffer.from(await download.data.arrayBuffer());
+  const requiredPlaceholders = [
+    ...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS]),
+  ];
+  const report = validateDocxTemplate({
+    content,
+    mimeType: current.data.mime_type ?? DOCX_MIME,
+    requiredPlaceholders,
+  });
+  const changed = await context.admin.from("contract_templates").update({
+    name: input.name,
+    description: input.description,
+    required_fields: requiredPlaceholders,
+    variable_schema: { placeholders: report.placeholders },
+    validation_report: report,
+    status: report.valid ? "awaiting_approval" : "draft",
+  }).eq("id", input.templateId);
+  if (changed.error) throw new Error("Template update failed.");
+  await audit(context.admin, {
+    actorId: context.actorId,
+    entityType: "contract_template",
+    entityId: input.templateId,
+    action: "template.metadata_updated",
+    metadata: { valid: report.valid, error_codes: report.errors },
+  });
+}
+
 // Strategy B (defense in depth for Step 6): required_fields naming a
 // contractPlaceholder that neither the template's own completeness rule set
 // covers nor the system-managed exclusion list explains is a template an

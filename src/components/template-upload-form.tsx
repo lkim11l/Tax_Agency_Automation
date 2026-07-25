@@ -81,7 +81,19 @@ export function TemplateUploadForm({
         </select>
       </label>
       <label className="field field-wide">{ru ? "Описание" : "Description"}<textarea name="description" rows={2} /></label>
-      <label className="field field-wide">{ru ? "Обязательные поля шаблона" : "Required placeholders"}<input name="required_placeholders" required defaultValue={placeholders.join(", ")} /></label>
+      <label className="field field-wide">
+        {ru ? "Обязательные поля шаблона" : "Required placeholders"}
+        <input name="required_placeholders" required placeholder={ru ? "например: client_legal_name, client_inn, signer_name" : "e.g. client_legal_name, client_inn, signer_name"} />
+        <small className="muted">
+          {ru
+            ? "Перечислите через запятую только те поля, которые реально встречаются в тексте файла как {{имя_поля}} — если указать поле, которого нет в файле, шаблон не пройдёт проверку. Поля родительного падежа добавляются автоматически, их указывать не нужно."
+            : "List, comma-separated, only the placeholders that actually appear in the file's text as {{placeholder_name}} — listing one that isn't in the file will fail validation. The genitive-case fields are added automatically and don't need to be listed."}
+        </small>
+        <details>
+          <summary>{ru ? "Все допустимые названия полей" : "All valid placeholder names"}</summary>
+          <p className="muted">{placeholders.join(", ")}</p>
+        </details>
+      </label>
       <label className="field field-wide">
         {ru ? "Файл DOCX" : "DOCX file"}
         <input

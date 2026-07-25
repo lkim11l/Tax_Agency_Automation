@@ -10,6 +10,7 @@ import { getLocale } from "@/lib/i18n";
 import {
   approveTemplate,
   setTemplateLifecycle,
+  updateTemplateMetadata,
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
 import { completenessRuleSets } from "@/modules/clarification/rules";
@@ -110,6 +111,35 @@ export async function templateLifecycleAction(formData: FormData) {
     redirect(`/templates/${parsed.data.templateId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Template action failed.")}`);
   }
   redirect(`/templates/${parsed.data.templateId}?success=${parsed.data.action}`);
+}
+
+const updateSchema = z.object({
+  templateId: z.string().uuid(),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).nullable(),
+  requiredPlaceholders: z.array(z.string()).min(1).max(100),
+});
+
+export async function updateTemplateMetadataAction(formData: FormData) {
+  const templateId = formData.get("template_id");
+  const parsed = updateSchema.safeParse({
+    templateId,
+    name: formData.get("name"),
+    description: formData.get("description") || null,
+    requiredPlaceholders: String(formData.get("required_placeholders") ?? "")
+      .split(",").map((item) => item.trim()).filter(Boolean),
+  });
+  if (!parsed.success) {
+    redirect(`/templates/${typeof templateId === "string" ? templateId : ""}?error=${encodeURIComponent("Некорректные данные формы.")}`);
+  }
+  try {
+    await updateTemplateMetadata(parsed.data);
+    revalidatePath("/templates");
+    revalidatePath(`/templates/${parsed.data.templateId}`);
+  } catch (error) {
+    redirect(`/templates/${parsed.data.templateId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Template update failed.")}`);
+  }
+  redirect(`/templates/${parsed.data.templateId}?success=${encodeURIComponent("Шаблон обновлён.")}`);
 }
 
 export async function bulkArchiveTemplatesAction(formData: FormData) {

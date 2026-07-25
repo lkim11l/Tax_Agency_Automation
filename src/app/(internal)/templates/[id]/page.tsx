@@ -6,7 +6,7 @@ import { Feedback } from "@/components/feedback";
 import { getOperationalContext } from "@/lib/auth/context";
 import { getLocale, localizeStatus, localizeTemplateType } from "@/lib/i18n";
 import { getTemplateRuntimeStatus } from "@/modules/contracts/service";
-import { templateLifecycleAction } from "@/modules/templates/actions";
+import { templateLifecycleAction, updateTemplateMetadataAction } from "@/modules/templates/actions";
 import { getTemplate } from "@/modules/templates/repository";
 
 export default async function TemplateDetailPage({ params, searchParams }: {
@@ -104,6 +104,32 @@ export default async function TemplateDetailPage({ params, searchParams }: {
         {report.warnings?.length ? <ul>{report.warnings.map((item) => <li key={item}>{item}</li>)}</ul> : null}
         <h3>{ru ? "Поля шаблона" : "Placeholders"}</h3>
         <p>{report.placeholders?.join(", ") || (ru ? "Нет" : "None")}</p>
+        {profile.role === "admin" && ["draft", "awaiting_approval"].includes(template.status) ? (
+          <details className="section-gap">
+            <summary>{ru ? "Редактировать шаблон" : "Edit template"}</summary>
+            <form action={updateTemplateMetadataAction} className="form-grid section-gap">
+              <input type="hidden" name="template_id" value={id} />
+              <label className="field field-wide">
+                {ru ? "Название" : "Name"}
+                <input name="name" required maxLength={200} defaultValue={template.name} />
+              </label>
+              <label className="field field-wide">
+                {ru ? "Описание" : "Description"}
+                <textarea name="description" rows={2} defaultValue={template.description ?? ""} />
+              </label>
+              <label className="field field-wide">
+                {ru ? "Обязательные поля шаблона" : "Required placeholders"}
+                <input name="required_placeholders" required defaultValue={(template.required_fields ?? []).join(", ")} />
+                <small className="muted">
+                  {ru
+                    ? "Файл не меняется — только список обязательных полей и проверка пересчитываются заново по уже загруженному файлу."
+                    : "The file itself is unchanged — only the required-fields list and validation are recomputed against the already-uploaded file."}
+                </small>
+              </label>
+              <div className="field-wide"><button type="submit">{ru ? "Сохранить и перепроверить" : "Save and re-validate"}</button></div>
+            </form>
+          </details>
+        ) : null}
         {profile.role === "admin" ? (
           <div className="inline-actions actions-footer">
             {template.status === "awaiting_approval" && report.valid ? (
