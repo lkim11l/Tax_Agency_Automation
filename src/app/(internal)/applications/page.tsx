@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Feedback } from "@/components/feedback";
+import { BulkArchiveSubmitButton, SelectAllCheckbox } from "@/components/template-bulk-actions";
 import {
   formatAmount,
   formatDate,
@@ -10,6 +11,7 @@ import {
   localizePriority,
   localizeStatus,
 } from "@/lib/i18n";
+import { bulkArchiveApplicationsAction } from "@/modules/applications/actions";
 import { applicationStatuses, type ApplicationStatus } from "@/modules/applications/domain";
 import { listApplications, listAssignableProfiles } from "@/modules/applications/repository";
 
@@ -42,6 +44,7 @@ export default async function ApplicationsPage({ searchParams }: Props) {
     page: Math.max(1, Number(params.page) || 1),
     pageSize: 25,
   };
+  const viewingArchive = filters.status === "archived";
   const [result, profiles, locale] = await Promise.all([
     listApplications(filters),
     listAssignableProfiles(),
@@ -55,7 +58,7 @@ export default async function ApplicationsPage({ searchParams }: Props) {
         <div><h2>{ru ? "Заявки" : "Applications"}</h2><p className="muted">{ru ? "Рабочая очередь заявок и договоров." : "Application and contract work queue."}</p></div>
         <Link className="button-link" href="/applications/new">{ru ? "Создать заявку" : "Create application"}</Link>
       </div>
-      <Feedback error={params.error} />
+      <Feedback error={params.error} success={params.success} />
       <section className="panel registry-panel">
         <h3>{ru ? "Фильтры" : "Filters"}</h3>
         <form className="filter-grid">
@@ -65,7 +68,7 @@ export default async function ApplicationsPage({ searchParams }: Props) {
           <label className="field">
             {ru ? "Статус" : "Status"}
             <select name="status" defaultValue={filters.status ?? ""}>
-              <option value="">{ru ? "Все статусы" : "All statuses"}</option>
+              <option value="">{ru ? "Все статусы (кроме архива)" : "All statuses (except archive)"}</option>
               {applicationStatuses.map((status) => <option value={status} key={status}>{localizeStatus(status, locale)}</option>)}
             </select>
           </label>
@@ -78,7 +81,13 @@ export default async function ApplicationsPage({ searchParams }: Props) {
           </label>
           <label className="field">{ru ? "Получено с" : "Received from"}<input type="date" name="date_from" defaultValue={params.date_from} /></label>
           <label className="field">{ru ? "Получено по" : "Received to"}<input type="date" name="date_to" defaultValue={params.date_to} /></label>
-          <div className="filter-actions"><button type="submit">{ru ? "Применить" : "Apply"}</button><Link href="/applications">{ru ? "Сбросить" : "Reset"}</Link></div>
+          <div className="filter-actions">
+            <button type="submit">{ru ? "Применить" : "Apply"}</button>
+            <Link href="/applications">{ru ? "Сбросить" : "Reset"}</Link>
+            {!viewingArchive ? (
+              <Link href="/applications?status=archived">{ru ? "Показать архив" : "Show archive"}</Link>
+            ) : null}
+          </div>
         </form>
       </section>
       {state.kind === "error" ? (
@@ -89,24 +98,74 @@ export default async function ApplicationsPage({ searchParams }: Props) {
           <p>{ru ? "Измените фильтры, проверьте почту или создайте заявку вручную." : "Change filters, check mail, or create an application."}</p>
         </section>
       ) : (
-        <div className="table-wrap section-gap">
-          <table>
-            <thead><tr><th>{ru ? "Номер" : "Number"}</th><th>{ru ? "Название / предмет" : "Title / subject"}</th><th>{ru ? "Контрагент" : "Counterparty"}</th><th>{ru ? "Статус" : "Status"}</th><th>{ru ? "Приоритет" : "Priority"}</th><th>{ru ? "Сумма" : "Amount"}</th><th>{ru ? "Получено" : "Received"}</th><th>{ru ? "Ответственный" : "Responsible"}</th><th>{ru ? "Обновлено" : "Updated"}</th></tr></thead>
-            <tbody>{state.items.map((application) => (
-              <tr key={application.id}>
-                <td><Link href={`/applications/${application.id}`}>{application.application_number}</Link></td>
-                <td>{application.title || application.contract_subject || "—"}</td>
-                <td>{application.counterparty?.legal_name ?? "—"}</td>
-                <td><span className={`badge badge-${application.status}`}>{localizeStatus(application.status, locale)}</span></td>
-                <td>{localizePriority(application.priority, locale)}</td>
-                <td>{formatAmount(application.contract_amount, application.currency, locale)}</td>
-                <td>{formatDate(application.received_at, locale)}</td>
-                <td>{application.assignee?.full_name ?? application.assignee?.email ?? "—"}</td>
-                <td>{formatDateTime(application.updated_at, locale)}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
+        <form action={bulkArchiveApplicationsAction} className="section-gap">
+          {!viewingArchive ? (
+            <div className="inline-actions bulk-actions-bar">
+              <label className="inline-actions">
+                <SelectAllCheckbox name="application_ids" />
+                <span className="muted">{ru ? "Выбрать все" : "Select all"}</span>
+              </label>
+              <BulkArchiveSubmitButton
+                name="application_ids"
+                className="button-danger"
+                emptyMessage={ru ? "Выберите хотя бы одну заявку." : "Select at least one application."}
+                confirmMessageTemplate={
+                  ru
+                    ? "Выбрано заявок: {count}. Они будут перемещены в архив и скрыты из основного списка. Продолжить?"
+                    : "{count} application(s) selected. They will be archived and hidden from the main list. Continue?"
+                }
+              >
+                {ru ? "Архивировать выбранные" : "Archive selected"}
+              </BulkArchiveSubmitButton>
+            </div>
+          ) : null}
+          <div className="template-card-grid">
+            {state.items.map((application) => (
+              <article className="template-card" key={application.id}>
+                <div className="template-card-header">
+                  {!viewingArchive ? (
+                    <input
+                      type="checkbox"
+                      name="application_ids"
+                      value={application.id}
+                      aria-label={ru ? `Выбрать ${application.application_number}` : `Select ${application.application_number}`}
+                    />
+                  ) : null}
+                  <div>
+                    <Link href={`/applications/${application.id}`} className="template-card-title">{application.application_number}</Link>
+                    <p className="muted">{application.title || application.contract_subject || "—"}</p>
+                  </div>
+                </div>
+                <div className="status-stack">
+                  <span className={`badge badge-${application.status}`}>{localizeStatus(application.status, locale)}</span>
+                  <span className="badge badge-sub badge-neutral">{localizePriority(application.priority, locale)}</span>
+                </div>
+                <dl className="template-card-meta">
+                  <div>
+                    <dt>{ru ? "Контрагент" : "Counterparty"}</dt>
+                    <dd>{application.counterparty?.legal_name ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{ru ? "Сумма" : "Amount"}</dt>
+                    <dd>{formatAmount(application.contract_amount, application.currency, locale)}</dd>
+                  </div>
+                  <div>
+                    <dt>{ru ? "Получено" : "Received"}</dt>
+                    <dd>{formatDate(application.received_at, locale)}</dd>
+                  </div>
+                  <div>
+                    <dt>{ru ? "Ответственный" : "Responsible"}</dt>
+                    <dd>{application.assignee?.full_name ?? application.assignee?.email ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>{ru ? "Обновлено" : "Updated"}</dt>
+                    <dd>{formatDateTime(application.updated_at, locale)}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </form>
       )}
       {state.kind !== "error" ? (
         <nav className="pagination" aria-label={ru ? "Страницы заявок" : "Application pages"}>

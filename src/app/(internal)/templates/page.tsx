@@ -11,8 +11,7 @@ import {
   localizeStatus,
   localizeTemplateType,
 } from "@/lib/i18n";
-import { completenessRuleSets } from "@/modules/clarification/rules";
-import { contractPlaceholders, PLACEHOLDER_SCHEMA_VERSION } from "@/modules/contracts/constants";
+import { PLACEHOLDER_SCHEMA_VERSION } from "@/modules/contracts/constants";
 import { bulkArchiveTemplatesAction, uploadTemplateAction } from "@/modules/templates/actions";
 import { listTemplates } from "@/modules/templates/repository";
 
@@ -21,15 +20,19 @@ export const metadata: Metadata = { title: "Шаблоны договоров" }
 export default async function TemplatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; archived?: string }>;
 }) {
   const feedback = await searchParams;
+  const viewingArchive = feedback.archived === "1";
   const [templates, { profile }, locale] = await Promise.all([
-    listTemplates(),
+    listTemplates({ includeArchived: viewingArchive }),
     getOperationalContext(),
     getLocale(),
   ]);
   const ru = locale === "ru";
+  const visibleTemplates = viewingArchive
+    ? templates.filter((template) => template.status === "archived")
+    : templates;
   return (
     <>
       <div className="page-heading">
@@ -41,6 +44,11 @@ export default async function TemplatesPage({
               : "Versioned DOCX templates. Upload does not imply legal approval."}
           </p>
         </div>
+        {viewingArchive ? (
+          <Link href="/templates">{ru ? "← К активным шаблонам" : "← Back to active templates"}</Link>
+        ) : (
+          <Link href="/templates?archived=1">{ru ? "Показать архив" : "Show archive"}</Link>
+        )}
       </div>
       <Feedback error={feedback.error} success={feedback.success} />
       {profile.role === "admin" ? (
@@ -48,8 +56,6 @@ export default async function TemplatesPage({
           <h3>{ru ? "Загрузить новую версию" : "Upload new template version"}</h3>
           <TemplateUploadForm
             action={uploadTemplateAction}
-            ruleSets={completenessRuleSets}
-            placeholders={[...contractPlaceholders]}
             ru={ru}
           />
         </section>
@@ -60,37 +66,41 @@ export default async function TemplatesPage({
             : "Template upload and lifecycle actions require an administrator."}
         </p>
       )}
-      {templates.length === 0 ? (
+      {visibleTemplates.length === 0 ? (
         <section className="panel empty-state section-gap">
-          <h3>{ru ? "Шаблонов пока нет" : "No templates yet"}</h3>
-          <p>{ru ? "Администратор может загрузить первый проверенный DOCX-шаблон." : "An administrator can upload the first validated DOCX template."}</p>
+          <h3>{viewingArchive ? (ru ? "В архиве пусто" : "Archive is empty") : (ru ? "Шаблонов пока нет" : "No templates yet")}</h3>
+          <p>
+            {viewingArchive
+              ? (ru ? "Ни один шаблон ещё не архивирован." : "No template has been archived yet.")
+              : (ru ? "Администратор может загрузить первый проверенный DOCX-шаблон." : "An administrator can upload the first validated DOCX template.")}
+          </p>
         </section>
       ) : (
         <form action={bulkArchiveTemplatesAction} className="section-gap">
-          {profile.role === "admin" ? (
-            <div className="inline-actions bulk-actions-bar">
-              <BulkArchiveSubmitButton
-                name="template_ids"
-                className="button-danger"
-                emptyMessage={ru ? "Выберите хотя бы один шаблон." : "Select at least one template."}
-                confirmMessageTemplate={
-                  ru
-                    ? "Выбрано шаблонов: {count}. Они будут перемещены в архив и станут недоступны для формирования новых договоров. Уже сформированные договоры не изменятся. Продолжить?"
-                    : "{count} template(s) selected. They will be archived and no longer selectable for new contract generation. Contracts already generated are unaffected. Continue?"
-                }
-              >
-                {ru ? "Архивировать выбранные" : "Archive selected"}
-              </BulkArchiveSubmitButton>
-            </div>
-          ) : null}
-          {profile.role === "admin" ? (
-            <label className="inline-actions bulk-actions-bar">
-              <SelectAllCheckbox name="template_ids" />
-              <span className="muted">{ru ? "Выбрать все" : "Select all"}</span>
-            </label>
+          {profile.role === "admin" && !viewingArchive ? (
+            <>
+              <div className="inline-actions bulk-actions-bar">
+                <BulkArchiveSubmitButton
+                  name="template_ids"
+                  className="button-danger"
+                  emptyMessage={ru ? "Выберите хотя бы один шаблон." : "Select at least one template."}
+                  confirmMessageTemplate={
+                    ru
+                      ? "Выбрано шаблонов: {count}. Они будут перемещены в архив и станут недоступны для формирования новых договоров. Уже сформированные договоры не изменятся. Продолжить?"
+                      : "{count} template(s) selected. They will be archived and no longer selectable for new contract generation. Contracts already generated are unaffected. Continue?"
+                  }
+                >
+                  {ru ? "Архивировать выбранные" : "Archive selected"}
+                </BulkArchiveSubmitButton>
+              </div>
+              <label className="inline-actions bulk-actions-bar">
+                <SelectAllCheckbox name="template_ids" />
+                <span className="muted">{ru ? "Выбрать все" : "Select all"}</span>
+              </label>
+            </>
           ) : null}
           <div className="template-card-grid">
-            {templates.map((template) => {
+            {visibleTemplates.map((template) => {
               const schemaOutdated = template.placeholder_schema_version !== PLACEHOLDER_SCHEMA_VERSION;
               return (
                 <article className={`template-card ${schemaOutdated ? "row-attention" : ""}`} key={template.id}>

@@ -18,6 +18,7 @@ export const applicationStatuses = [
   "completed",
   "processing_error",
   "cancelled",
+  "archived",
 ] as const;
 
 export const applicationPriorities = ["low", "normal", "high", "urgent"] as const;

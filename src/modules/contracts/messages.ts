@@ -88,8 +88,13 @@ export function safeBlockingMessage(reasons: string[], missingRenderFields?: str
   return "Формирование договора заблокировано проверками безопасности.";
 }
 
+// Accepts either a freshly-thrown Error (the live generateContract call path)
+// or a raw stored code string (contract_generation_runs.safe_error_code /
+// audit_events.metadata.safe_error_code, read back later for display) — both
+// carry the exact same GENERATION_BLOCKED:... shape, and neither may ever
+// reach a user-facing string un-mapped.
 export function safeGenerationErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
+  const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
   if (message.startsWith("GENERATION_BLOCKED:")) {
     // generateContract joins independent blocking reasons with ";" — never
     // "," — because REQUIRED_RENDER_VALUE_MISSING:<field1>,<field2> is one

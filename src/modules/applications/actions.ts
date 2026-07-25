@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import {
   applicationFormValues,
@@ -93,6 +94,27 @@ export async function changeStatusAction(formData: FormData) {
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);
   redirect(`/applications/${id}?success=status`);
+}
+
+export async function bulkArchiveApplicationsAction(formData: FormData) {
+  const parsed = z.object({
+    applicationIds: z.array(z.uuid()).min(1),
+  }).safeParse({
+    applicationIds: formData.getAll("application_ids"),
+  });
+  if (!parsed.success) redirect("/applications?error=Выберите хотя бы одну заявку.");
+  const results = await Promise.allSettled(
+    parsed.data.applicationIds.map((applicationId) =>
+      changeApplicationStatus({ applicationId, status: "archived", reason: "Archived by admin from the applications list." }),
+    ),
+  );
+  const failedCount = results.filter((result) => result.status === "rejected").length;
+  revalidatePath("/applications");
+  if (failedCount > 0) {
+    const okCount = results.length - failedCount;
+    redirect(`/applications?error=${encodeURIComponent(`Архивировано: ${okCount}. Не удалось: ${failedCount}.`)}`);
+  }
+  redirect(`/applications?success=${encodeURIComponent(`Архивировано заявок: ${results.length}.`)}`);
 }
 
 export async function appendNoteAction(formData: FormData) {

@@ -7,13 +7,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getLocale } from "@/lib/i18n";
+import { completenessRuleSets } from "@/modules/clarification/rules";
 import {
   approveTemplate,
   setTemplateLifecycle,
   updateTemplateMetadata,
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
-import { completenessRuleSets } from "@/modules/clarification/rules";
 import {
   templateUploadMessage,
   TemplateUploadError,
@@ -28,16 +28,14 @@ export type TemplateUploadState = {
   operationId?: string;
 };
 
+// The admin provides only a name and a file. Code, version, template type,
+// required rule set and the required-placeholder list are all derived
+// automatically by uploadTemplateVersion (src/modules/contracts/service.ts)
+// from the file's own content — see deriveAutoRequiredFields there for why.
+// Use the "Редактировать шаблон" action on the template's page to correct
+// the auto-picked template type / rule set before approval, if needed.
 const uploadSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  code: z.string().trim().regex(/^[a-z0-9][a-z0-9_-]{1,99}$/u),
-  description: z.string().trim().max(2000).nullable(),
-  templateType: z.enum(["services", "consulting", "supply"]),
-  version: z.string().trim().min(1).max(50),
-  requiredRuleSet: z.string().refine((value) =>
-    completenessRuleSets.some((item) => item.id === value),
-  ),
-  requiredPlaceholders: z.array(z.string()).min(1).max(100),
 });
 
 export async function uploadTemplateAction(
@@ -49,13 +47,6 @@ export async function uploadTemplateAction(
   const file = formData.get("file");
   const parsed = uploadSchema.safeParse({
     name: formData.get("name"),
-    code: formData.get("code"),
-    description: formData.get("description") || null,
-    templateType: formData.get("template_type"),
-    version: formData.get("version"),
-    requiredRuleSet: formData.get("required_rule_set"),
-    requiredPlaceholders: String(formData.get("required_placeholders") ?? "")
-      .split(",").map((item) => item.trim()).filter(Boolean),
   });
   if (!parsed.success || !(file instanceof File) || file.size === 0 || file.size > 10_485_760) {
     return {
@@ -117,17 +108,26 @@ const updateSchema = z.object({
   templateId: z.string().uuid(),
   name: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).nullable(),
-  requiredPlaceholders: z.array(z.string()).min(1).max(100),
+  templateType: z.enum(["services", "consulting", "supply"]).optional(),
+  requiredRuleSet: z.string().refine((value) =>
+    completenessRuleSets.some((item) => item.id === value),
+  ).optional(),
+  // Empty means "not provided" — updateTemplateMetadata re-derives the list
+  // from the file's actual content in that case, same as upload does.
+  requiredPlaceholders: z.array(z.string()).optional(),
 });
 
 export async function updateTemplateMetadataAction(formData: FormData) {
   const templateId = formData.get("template_id");
+  const requiredPlaceholdersRaw = String(formData.get("required_placeholders") ?? "")
+    .split(",").map((item) => item.trim()).filter(Boolean);
   const parsed = updateSchema.safeParse({
     templateId,
     name: formData.get("name"),
     description: formData.get("description") || null,
-    requiredPlaceholders: String(formData.get("required_placeholders") ?? "")
-      .split(",").map((item) => item.trim()).filter(Boolean),
+    templateType: formData.get("template_type") || undefined,
+    requiredRuleSet: formData.get("required_rule_set") || undefined,
+    requiredPlaceholders: requiredPlaceholdersRaw.length ? requiredPlaceholdersRaw : undefined,
   });
   if (!parsed.success) {
     redirect(`/templates/${typeof templateId === "string" ? templateId : ""}?error=${encodeURIComponent("Некорректные данные формы.")}`);

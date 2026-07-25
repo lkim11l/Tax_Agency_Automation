@@ -108,6 +108,11 @@ export async function listApplications(filters: ApplicationFilters) {
   }
   if (filters.status) {
     query = query.eq("status", filters.status);
+  } else {
+    // Archived applications are excluded from the default (no explicit
+    // status filter) view so they stop cluttering the working list —
+    // explicitly filtering to status=archived is the only way to see them.
+    query = query.neq("status", "archived");
   }
   if (filters.assignedTo) {
     query = query.eq("assigned_to", filters.assignedTo);

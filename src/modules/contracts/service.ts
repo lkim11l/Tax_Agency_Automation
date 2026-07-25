@@ -115,6 +115,70 @@ function safeFilename(value: string) {
     .slice(0, 180) || "contract.docx";
 }
 
+const CYRILLIC_TRANSLITERATION: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "i", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh", щ: "sch",
+  ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+
+// Only used to build a valid `code` (contract_templates_code_format:
+// ^[a-z0-9][a-z0-9_-]{1,99}$) out of a free-text Russian template name —
+// never shown to a user, never load-bearing for anything except the
+// storage path and the (code, version) uniqueness index, so a lossy
+// transliteration is fine.
+function autoTemplateCode(name: string): string {
+  const transliterated = name
+    .toLowerCase()
+    .split("")
+    .map((char) => CYRILLIC_TRANSLITERATION[char] ?? char)
+    .join("");
+  const slug = transliterated
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 60);
+  return `${slug || "template"}-${randomUUID().slice(0, 8)}`;
+}
+
+// contract_templates has a unique (name, version) constraint, and the admin
+// no longer types a version — auto-number sequential re-uploads of the same
+// name instead of colliding on the "1.0.0" default every time.
+async function nextAutoVersion(admin: SupabaseClient, name: string): Promise<string> {
+  const existing = await admin
+    .from("contract_templates")
+    .select("id", { count: "exact", head: true })
+    .eq("name", name);
+  const count = existing.count ?? 0;
+  return `${count + 1}.0.0`;
+}
+
+// Auto-derives required_fields from what the file actually contains,
+// instead of an admin-typed list (the exact source of every
+// REQUIRED_PLACEHOLDERS_MISSING / rule-set-mismatch incident this session).
+// Only keeps placeholders the completeness rule set can explain or that are
+// system-managed — anything else present in the file (e.g. client_kpp under
+// a rule set that never asks about it) is left OUT of required_fields, but
+// is still fully enforced at generation time regardless, because
+// loadGenerationSource unions required_fields with the template's actual
+// DOCX placeholder usage (see the required-render-value check in
+// loadGenerationSource) — so nothing here weakens what actually gets
+// checked, it only decides what approveTemplate's Strategy B guard can
+// verify up front.
+function deriveAutoRequiredFields(templatePlaceholders: string[], ruleSetId: string): string[] {
+  let ruleSetFieldNames: Set<string>;
+  try {
+    ruleSetFieldNames = new Set(getRuleSet(ruleSetId).rules.map((rule) => rule.fieldName));
+  } catch {
+    ruleSetFieldNames = new Set();
+  }
+  const recognized = templatePlaceholders.filter((name) => {
+    if (SYSTEM_MANAGED_PLACEHOLDERS.includes(name as ContractPlaceholder)) return true;
+    const extractionFieldName = PLACEHOLDER_TO_EXTRACTION_FIELD[name as ContractPlaceholder] ?? name;
+    return ruleSetFieldNames.has(extractionFieldName);
+  });
+  return [...new Set([...recognized, ...MANDATORY_PLACEHOLDERS])];
+}
+
 async function audit(
   admin: SupabaseClient,
   input: {
@@ -139,12 +203,12 @@ async function audit(
 
 export async function uploadTemplateVersion(input: {
   name: string;
-  code: string;
-  description: string | null;
-  templateType: "services" | "consulting" | "supply";
-  version: string;
-  requiredRuleSet: string;
-  requiredPlaceholders: string[];
+  code?: string;
+  description?: string | null;
+  templateType?: "services" | "consulting" | "supply";
+  version?: string;
+  requiredRuleSet?: string;
+  requiredPlaceholders?: string[];
   filename: string;
   mimeType: string;
   content: Buffer;
@@ -156,13 +220,25 @@ export async function uploadTemplateVersion(input: {
     throw new TemplateUploadError("TEMPLATE_RLS_DENIED");
   }
   const filename = normalizeDocxFilename(input.filename);
-  // Mandatory placeholders are never left to the uploading admin's
-  // discretion — union them in regardless of what was selected in the
-  // upload form, so a template missing the genitive preamble fields can
-  // never validate as ready for approval.
-  const requiredPlaceholders = [
-    ...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS]),
-  ];
+  const templateType = input.templateType ?? "services";
+  const requiredRuleSet = input.requiredRuleSet?.trim() || "standard-contract";
+
+  // The admin provides only a name and a file — everything else the upload
+  // used to ask for by hand (required fields above all) is derived from the
+  // file's own content instead, which is what actually caused every
+  // REQUIRED_PLACEHOLDERS_MISSING / rule-set-mismatch incident this session:
+  // an admin-typed list is guaranteed to eventually drift from what the
+  // document really contains. Scan first (requiredPlaceholders: [] — no
+  // claim yet) purely to learn which {{placeholder}} tokens actually exist
+  // in the text, via the exact same deterministic regex scan
+  // validateDocxTemplate always uses (docx.ts) — no guessing, no AI call
+  // needed for something a mechanical parse already answers exactly.
+  const requiredPlaceholders = input.requiredPlaceholders
+    ? [...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS])]
+    : deriveAutoRequiredFields(
+        validateDocxTemplate({ content: input.content, mimeType: DOCX_MIME, requiredPlaceholders: [] }).placeholders,
+        requiredRuleSet,
+      );
   const report = validateDocxTemplate({
     content: input.content,
     mimeType: DOCX_MIME,
@@ -183,7 +259,9 @@ export async function uploadTemplateVersion(input: {
   }
   const digest = checksum(input.content);
   const templateId = randomUUID();
-  const storagePath = `templates/${input.code}/${input.version}/${templateId}/${safeFilename(filename)}`;
+  const code = input.code?.trim() || autoTemplateCode(input.name);
+  const version = input.version?.trim() || (await nextAutoVersion(context.admin, input.name));
+  const storagePath = `templates/${code}/${version}/${templateId}/${safeFilename(filename)}`;
   const upload = await context.admin.storage
     .from(CONTRACT_BUCKET)
     .upload(storagePath, input.content, {
@@ -208,16 +286,16 @@ export async function uploadTemplateVersion(input: {
     const created = await context.admin.from("contract_templates").insert({
       id: templateId,
       name: input.name,
-      code: input.code,
-      description: input.description,
-      template_type: input.templateType,
-      version: input.version,
+      code,
+      description: input.description ?? null,
+      template_type: templateType,
+      version,
       status: report.valid ? "awaiting_approval" : "draft",
       storage_path: storagePath,
       checksum: digest,
       original_filename: safeFilename(filename),
       mime_type: DOCX_MIME,
-      required_rule_set: input.requiredRuleSet,
+      required_rule_set: requiredRuleSet,
       placeholder_schema_version: PLACEHOLDER_SCHEMA_VERSION,
       required_fields: requiredPlaceholders,
       variable_schema: { placeholders: report.placeholders },
@@ -233,8 +311,8 @@ export async function uploadTemplateVersion(input: {
       action: "template.version_created",
       metadata: {
         checksum: digest,
-        version: input.version,
-        code: input.code,
+        version,
+        code,
         placeholder_schema_version: PLACEHOLDER_SCHEMA_VERSION,
       },
     });
@@ -243,7 +321,7 @@ export async function uploadTemplateVersion(input: {
       entityType: "contract_template",
       entityId: templateId,
       action: "template.uploaded",
-      metadata: { checksum: digest, version: input.version, code: input.code },
+      metadata: { checksum: digest, version, code },
     });
     await audit(context.admin, {
       actorId: context.actorId,
@@ -300,13 +378,15 @@ export async function updateTemplateMetadata(input: {
   templateId: string;
   name: string;
   description: string | null;
-  requiredPlaceholders: string[];
+  templateType?: "services" | "consulting" | "supply";
+  requiredRuleSet?: string;
+  requiredPlaceholders?: string[];
 }, execution?: Execution) {
   const context = await executionContext(execution);
   if (context.role !== "admin") throw new Error("Administrator access is required.");
   const current = await context.admin
     .from("contract_templates")
-    .select("id,status,storage_path,mime_type")
+    .select("id,status,storage_path,mime_type,required_rule_set")
     .eq("id", input.templateId)
     .single();
   if (current.error || !current.data) throw new Error("Template not found.");
@@ -317,9 +397,16 @@ export async function updateTemplateMetadata(input: {
   const download = await context.admin.storage.from(CONTRACT_BUCKET).download(current.data.storage_path);
   if (download.error || !download.data) throw new Error("Unable to download template file.");
   const content = Buffer.from(await download.data.arrayBuffer());
-  const requiredPlaceholders = [
-    ...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS]),
-  ];
+  const requiredRuleSet = input.requiredRuleSet?.trim() || current.data.required_rule_set;
+  // If the admin didn't type an explicit list, re-derive from the file's
+  // actual placeholders against the (possibly just-changed) rule set —
+  // same auto logic uploadTemplateVersion uses, kept in sync deliberately.
+  const requiredPlaceholders = input.requiredPlaceholders
+    ? [...new Set([...input.requiredPlaceholders, ...MANDATORY_PLACEHOLDERS])]
+    : deriveAutoRequiredFields(
+        validateDocxTemplate({ content, mimeType: current.data.mime_type ?? DOCX_MIME, requiredPlaceholders: [] }).placeholders,
+        requiredRuleSet,
+      );
   const report = validateDocxTemplate({
     content,
     mimeType: current.data.mime_type ?? DOCX_MIME,
@@ -328,6 +415,8 @@ export async function updateTemplateMetadata(input: {
   const changed = await context.admin.from("contract_templates").update({
     name: input.name,
     description: input.description,
+    template_type: input.templateType ?? undefined,
+    required_rule_set: requiredRuleSet,
     required_fields: requiredPlaceholders,
     variable_schema: { placeholders: report.placeholders },
     validation_report: report,

@@ -21,13 +21,9 @@ function SubmitButton({ ru }: { ru: boolean }) {
 
 export function TemplateUploadForm({
   action,
-  ruleSets,
-  placeholders,
   ru,
 }: {
   action: (state: TemplateUploadState, formData: FormData) => Promise<TemplateUploadState>;
-  ruleSets: Array<{ id: string; label: string; version: string }>;
-  placeholders: string[];
   ru: boolean;
 }) {
   const [state, formAction] = useActionState(action, initialState);
@@ -63,37 +59,7 @@ export function TemplateUploadForm({
           ) : null}
         </div>
       ) : null}
-      <label className="field">{ru ? "Название" : "Name"}<input name="name" required maxLength={200} /></label>
-      <label className="field">{ru ? "Код" : "Code"}<input name="code" required pattern="[a-z0-9][a-z0-9_-]{1,99}" /></label>
-      <label className="field">{ru ? "Версия" : "Version"}<input name="version" required defaultValue="1.0.0" /></label>
-      <label className="field">
-        {ru ? "Тип" : "Type"}
-        <select name="template_type">
-          <option value="services">{ru ? "Оказание услуг" : "Services"}</option>
-          <option value="consulting">{ru ? "Консультационные услуги" : "Consulting"}</option>
-          <option value="supply">{ru ? "Поставка" : "Supply"}</option>
-        </select>
-      </label>
-      <label className="field">
-        {ru ? "Набор правил" : "Rule set"}
-        <select name="required_rule_set">
-          {ruleSets.map((rule) => <option key={rule.id} value={rule.id}>{rule.label} v{rule.version}</option>)}
-        </select>
-      </label>
-      <label className="field field-wide">{ru ? "Описание" : "Description"}<textarea name="description" rows={2} /></label>
-      <label className="field field-wide">
-        {ru ? "Обязательные поля шаблона" : "Required placeholders"}
-        <input name="required_placeholders" required placeholder={ru ? "например: client_legal_name, client_inn, signer_name" : "e.g. client_legal_name, client_inn, signer_name"} />
-        <small className="muted">
-          {ru
-            ? "Перечислите через запятую только те поля, которые реально встречаются в тексте файла как {{имя_поля}} — если указать поле, которого нет в файле, шаблон не пройдёт проверку. Поля родительного падежа добавляются автоматически, их указывать не нужно."
-            : "List, comma-separated, only the placeholders that actually appear in the file's text as {{placeholder_name}} — listing one that isn't in the file will fail validation. The genitive-case fields are added automatically and don't need to be listed."}
-        </small>
-        <details>
-          <summary>{ru ? "Все допустимые названия полей" : "All valid placeholder names"}</summary>
-          <p className="muted">{placeholders.join(", ")}</p>
-        </details>
-      </label>
+      <label className="field field-wide">{ru ? "Название" : "Name"}<input name="name" required maxLength={200} /></label>
       <label className="field field-wide">
         {ru ? "Файл DOCX" : "DOCX file"}
         <input
@@ -107,6 +73,11 @@ export function TemplateUploadForm({
           {filename ? `${ru ? "Выбран файл" : "Selected"}: ${filename}` : (ru ? "До 10 МБ, только безопасный DOCX без макросов." : "Up to 10 MB, safe macro-free DOCX only.")}
         </small>
       </label>
+      <p className="muted field-wide">
+        {ru
+          ? "Обязательные поля, тип договора и набор правил определяются автоматически по содержимому файла. При необходимости их можно скорректировать на странице шаблона после загрузки."
+          : "Required fields, contract type and rule set are all derived automatically from the file's content. Adjust them on the template's page after upload if needed."}
+      </p>
       <div className="field-wide"><SubmitButton ru={ru} /></div>
     </form>
   );

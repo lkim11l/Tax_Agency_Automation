@@ -5,6 +5,7 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Feedback } from "@/components/feedback";
 import { getOperationalContext } from "@/lib/auth/context";
 import { getLocale, localizeStatus, localizeTemplateType } from "@/lib/i18n";
+import { completenessRuleSets } from "@/modules/clarification/rules";
 import { getTemplateRuntimeStatus } from "@/modules/contracts/service";
 import { templateLifecycleAction, updateTemplateMetadataAction } from "@/modules/templates/actions";
 import { getTemplate } from "@/modules/templates/repository";
@@ -117,13 +118,27 @@ export default async function TemplateDetailPage({ params, searchParams }: {
                 {ru ? "Описание" : "Description"}
                 <textarea name="description" rows={2} defaultValue={template.description ?? ""} />
               </label>
+              <label className="field">
+                {ru ? "Тип договора" : "Contract type"}
+                <select name="template_type" defaultValue={template.template_type ?? "services"}>
+                  <option value="services">{ru ? "Оказание услуг" : "Services"}</option>
+                  <option value="consulting">{ru ? "Консультационные услуги" : "Consulting"}</option>
+                  <option value="supply">{ru ? "Поставка" : "Supply"}</option>
+                </select>
+              </label>
+              <label className="field">
+                {ru ? "Набор правил комплектности" : "Completeness rule set"}
+                <select name="required_rule_set" defaultValue={template.required_rule_set ?? "standard-contract"}>
+                  {completenessRuleSets.map((rule) => <option key={rule.id} value={rule.id}>{rule.label} v{rule.version}</option>)}
+                </select>
+              </label>
               <label className="field field-wide">
-                {ru ? "Обязательные поля шаблона" : "Required placeholders"}
-                <input name="required_placeholders" required defaultValue={(template.required_fields ?? []).join(", ")} />
+                {ru ? "Обязательные поля шаблона (необязательно)" : "Required placeholders (optional)"}
+                <input name="required_placeholders" defaultValue="" placeholder={(template.required_fields ?? []).join(", ")} />
                 <small className="muted">
                   {ru
-                    ? "Файл не меняется — только список обязательных полей и проверка пересчитываются заново по уже загруженному файлу."
-                    : "The file itself is unchanged — only the required-fields list and validation are recomputed against the already-uploaded file."}
+                    ? "Оставьте пустым, чтобы список пересчитался автоматически по содержимому файла и выбранному набору правил. Файл при этом не меняется."
+                    : "Leave blank to recompute the list automatically from the file's content and the selected rule set. The file itself is unchanged."}
                 </small>
               </label>
               <div className="field-wide"><button type="submit">{ru ? "Сохранить и перепроверить" : "Save and re-validate"}</button></div>

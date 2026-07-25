@@ -34,14 +34,20 @@ export type TemplateListItem = {
   approver?: { email: string; full_name: string | null }[] | null;
 };
 
-export async function listTemplates() {
+export async function listTemplates(options?: { includeArchived?: boolean }) {
   const { supabase } = await getOperationalContext();
-  const { data, error } = await supabase
+  let query = supabase
     .from("contract_templates")
     .select(
       "id,name,description,version,status,required_fields,storage_path,is_active,updated_at,code,template_type,checksum,original_filename,mime_type,required_rule_set,placeholder_schema_version,validation_report,approved_by,approved_at,legal_approval_status,creator:profiles!contract_templates_created_by_fkey(email,full_name),approver:profiles!contract_templates_approved_by_fkey(email,full_name)",
     )
     .order("name");
+  // Archived templates are excluded by default so they stop cluttering the
+  // main list — pass includeArchived to explicitly view them.
+  if (!options?.includeArchived) {
+    query = query.neq("status", "archived");
+  }
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Unable to load templates: ${error.message}`);
