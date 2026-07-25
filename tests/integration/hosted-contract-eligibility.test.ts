@@ -9,6 +9,7 @@ import {
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
 import { recordSafeFieldAcceptances } from "@/modules/extraction/acceptance";
+import { inputFingerprint } from "@/modules/applications/processing";
 
 function required(name: string) {
   const value = process.env[name]?.trim();
@@ -271,7 +272,17 @@ describe.sequential("contract generation eligibility after safe field acceptance
     expect(after.data![0].extraction_fingerprint).toBe(eligibility.sourceFingerprint);
   });
 
-  it("scenario D: a newer email after completeness keeps generation blocked as stale", async () => {
+  it("scenario D: a genuinely new, unprocessed email keeps generation blocked as stale", async () => {
+    // Rewritten for the fingerprint-based COMPLETENESS_STALE check (loadGenerationSource
+    // in src/modules/contracts/service.ts no longer compares wall-clock
+    // timestamps — a newer email/attachment/extracted_fields row that never
+    // changed inputFingerprint is a legitimate cache hit, not staleness; see
+    // hosted-completeness-stale-regression.test.ts for that distinction).
+    // This scenario must establish a completed application_processing_runs
+    // row matching the CURRENT fingerprint first (the cache-hit baseline a
+    // real "Обработать заявку" would leave behind), then add a real new
+    // source afterward, so the assertion actually exercises "does input
+    // fingerprint still match", not just "no processing run exists at all".
     const applicationId = await createApplication(`Eligibility scenario D ${Date.now()}`);
     const templateId = await createApprovedTemplate("standard-contract", `elig-d-${Date.now()}`);
     await seedSevenAcceptableFields(applicationId);
@@ -282,9 +293,16 @@ describe.sequential("contract generation eligibility after safe field acceptance
       initiatedBy: adminId,
       admin: service,
     });
+    const baselineFingerprint = await inputFingerprint(applicationId, service);
+    const processed = await service.from("application_processing_runs").insert({
+      application_id: applicationId,
+      input_fingerprint: baselineFingerprint,
+      status: "completed",
+      processed_by: adminId,
+      completed_at: new Date().toISOString(),
+    });
+    expect(processed.error).toBeNull();
 
-    // Ensure a strictly later timestamp than the completeness run above.
-    await new Promise((resolve) => setTimeout(resolve, 1100));
     const email = await service.from("email_messages").insert({
       application_id: applicationId,
       provider: "mailru",

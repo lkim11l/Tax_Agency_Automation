@@ -10,6 +10,7 @@ import {
   uploadTemplateVersion,
 } from "@/modules/contracts/service";
 import { DOCX_MIME } from "@/modules/contracts/constants";
+import { inputFingerprint } from "@/modules/applications/processing";
 
 // Regression coverage for the 2026-07-24 contract generation incident
 // (application 7d95a537-f018-4d53-a47a-9e66235b9723, template
@@ -200,6 +201,24 @@ describe.sequential("contract generation incident regression (Step 9)", () => {
     expect(inserted.error).toBeNull();
   }
 
+  // checkContractEligibility's COMPLETENESS_STALE check asks whether a
+  // completed application_processing_runs row's input_fingerprint matches
+  // the current one (see hosted-completeness-stale-regression.test.ts) —
+  // scenarios that expect ready=true must establish that cache-hit baseline
+  // themselves, since seeding extracted_fields directly (bypassing
+  // processApplication) never creates one on its own.
+  async function markProcessed(applicationId: string) {
+    const fingerprint = await inputFingerprint(applicationId, service);
+    const inserted = await service.from("application_processing_runs").insert({
+      application_id: applicationId,
+      input_fingerprint: fingerprint,
+      status: "completed",
+      processed_by: adminId,
+      completed_at: new Date().toISOString(),
+    });
+    expect(inserted.error).toBeNull();
+  }
+
   it("regression A: a missing template-required client field blocks eligibility with its Russian label visible", async () => {
     const applicationId = await createApplication(`Regression A ${Date.now()}`);
     const templateId = await createTemplate(`reg-a-${Date.now()}`, ["client_short_name"]);
@@ -253,6 +272,7 @@ describe.sequential("contract generation incident regression (Step 9)", () => {
       initiatedBy: adminId,
       admin: service,
     });
+    await markProcessed(applicationId);
 
     const eligibility = await checkContractEligibility(applicationId, templateId, {
       actorId: adminId,
@@ -280,6 +300,7 @@ describe.sequential("contract generation incident regression (Step 9)", () => {
       initiatedBy: adminId,
       admin: service,
     });
+    await markProcessed(applicationId);
 
     const eligibility = await checkContractEligibility(applicationId, templateId, {
       actorId: adminId,

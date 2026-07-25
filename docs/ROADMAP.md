@@ -407,3 +407,32 @@ completeness rule set can't explain, and added an explicit
 `required_fields` can no longer ship a contract with a silently blank clause.
 A separate, independent fix in the same session added feminine Russian name
 declension — unrelated to this incident, kept and fully test-covered.
+
+Production defect follow-up (COMPLETENESS_STALE loop, 2026-07-24): the
+immediately preceding fix's own extracted_fields.updated_at check (added as a
+defense-in-depth mirror of the DB's staleness re-check) turned out to have
+the same flaw it was trying to close, just one layer in: it compared
+wall-clock recency instead of asking whether extractable input actually
+changed. A field re-touched without its value changing (a derived-field
+sync, a specialist re-confirming an already-correct value) bumps
+`updated_at` forever while `recalculateCompleteness` correctly keeps reusing
+the same completeness run (same content fingerprint) — so the wall-clock
+check could never again see completeness as "fresh," and generation stayed
+permanently blocked despite every reprocess being a legitimate, correct cache
+hit. Fixed by replacing both of `loadGenerationSource`'s wall-clock
+staleness checks with one fingerprint-based check: does the latest completed
+`application_processing_runs` row's `input_fingerprint` match the current
+one — the same question `claim_application_processing()` already answers
+correctly. The DB-level counterpart (`begin_contract_generation` and
+`finalize_contract_generation`'s own wall-clock re-checks) had the identical
+redundancy against a fingerprint match already computed a few lines above
+each — migration `202607240008_fix_generation_stale_check.sql` removes both,
+since removing only the TS side would have left `checkContractEligibility`
+reporting ready while the actual claim/finalize still failed. Verified
+against the real application: `checkContractEligibility` now reports
+`ready=true` and `generateContract` gets past the claim stage for the first
+time, reaching a completely separate, pre-existing, and correct block
+(`TEST_REQUISITES_PRESENT` — this specific demo application's own data
+contains an obviously-fake bank name, and the existing mock-content guard
+correctly refuses to render it into a real contract; not a bug, not part of
+either incident here).

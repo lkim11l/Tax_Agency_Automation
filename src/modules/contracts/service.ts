@@ -12,6 +12,7 @@ import {
 } from "@/modules/clarification/fingerprint";
 import { getRuleSet } from "@/modules/clarification/rules";
 import { recalculateCompleteness } from "@/modules/clarification/service";
+import { inputFingerprint } from "@/modules/applications/processing";
 
 import {
   CONTRACT_BUCKET,
@@ -464,7 +465,7 @@ async function loadGenerationSource(
   const ruleSetId = template.data.required_rule_set as string;
   const ruleSet = getRuleSet(ruleSetId);
 
-  const [fieldsResult, acceptancesResult, extraction, newerEmails, newerAttachments] =
+  const [fieldsResult, acceptancesResult, extraction, latestProcessingRun, currentInputFingerprint] =
     await Promise.all([
       admin
         .from("extracted_fields")
@@ -477,10 +478,24 @@ async function loadGenerationSource(
         .select("extracted_field_id,value_fingerprint")
         .eq("application_id", applicationId),
       admin.from("extraction_runs").select("id,completed_at").eq("application_id", applicationId).eq("status", "completed").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      admin.from("email_messages").select("id,created_at").eq("application_id", applicationId).order("created_at", { ascending: false }).limit(1),
-      admin.from("attachments").select("id,created_at").eq("application_id", applicationId).order("created_at", { ascending: false }).limit(1),
+      // "Did input actually change" — the same question
+      // claim_application_processing() already answers correctly via
+      // input_fingerprint — not "does a newer email/attachment row exist at
+      // all". An email/attachment that never changed the fingerprint (an
+      // auto-reply, a duplicate, an attachment with no extractable content)
+      // is a legitimate cache hit on every future "Обработать заявку", and
+      // must never be treated as permanently unprocessed.
+      admin
+        .from("application_processing_runs")
+        .select("id,input_fingerprint,completed_at")
+        .eq("application_id", applicationId)
+        .in("status", ["completed", "completed_with_review"])
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      inputFingerprint(applicationId, admin),
     ]);
-  const loadError = fieldsResult.error ?? acceptancesResult.error ?? extraction.error ?? newerEmails.error ?? newerAttachments.error;
+  const loadError = fieldsResult.error ?? acceptancesResult.error ?? extraction.error ?? latestProcessingRun.error;
   if (loadError) throw new Error("Unable to load contract generation source.");
 
   const rawFields = (fieldsResult.data ?? []) as (CompletenessSourceField & { updated_at: string })[];
@@ -559,35 +574,23 @@ async function loadGenerationSource(
   // never skip verifying it — these two checks must still be able to block.
   if (completenessRow.extraction_fingerprint !== fingerprint) blocking.push("SOURCE_FINGERPRINT_MISMATCH");
   if (template.data.required_rule_set !== completenessRow.rule_set_id) blocking.push("RULE_SET_MISMATCH");
-  // Compare against the latest completed extraction, not the completeness
-  // run's own timestamp: a completeness run that was just auto-recalculated
-  // above is always "fresh" by definition, so it can never look stale
-  // relative to raw inputs on its own — only whether extraction itself has
-  // actually caught up with the newest email/attachment tells us that.
-  const staleReferenceTime = extraction.data?.completed_at
-    ? new Date(extraction.data.completed_at).getTime()
-    : new Date(completenessRow.created_at).getTime();
-  if (
-    [newerEmails.data?.[0], newerAttachments.data?.[0]].some(
-      (item) => item && new Date(item.created_at).getTime() > staleReferenceTime,
-    )
-  ) {
-    blocking.push("COMPLETENESS_STALE");
-  }
-  // begin_contract_generation (the claim RPC) independently re-checks
-  // staleness against every extracted_fields.updated_at vs. the completeness
-  // run's own created_at — a value can be corrected (e.g. a specialist fixes
-  // authority_document) without changing the completeness fingerprint (same
-  // normalized value, just re-confirmed/re-touched), so the fingerprint-based
-  // check above never catches it. Without this, checkContractEligibility
-  // reports ready=true right up until the DB claim rejects it, and the
-  // specialist sees a failure the eligibility check should have shown them
-  // up front.
-  const completenessCreatedAt = new Date(completenessRow.created_at).getTime();
-  if (
-    !blocking.includes("COMPLETENESS_STALE") &&
-    rawFields.some((field) => new Date(field.updated_at).getTime() > completenessCreatedAt)
-  ) {
+  // "Genuinely unprocessed new input" means exactly what
+  // claim_application_processing() already means by a cache miss: no
+  // completed processing run covers the current inputFingerprint (source
+  // checksums + selected template). Wall-clock comparisons (an email/
+  // attachment/extracted_fields row touched "recently") answer a different,
+  // less reliable question and can disagree with the cache-hit mechanism
+  // forever — e.g. a message that never changed the fingerprint, or a field
+  // re-touched (re-confirmed, a derived-rule sync) without its value
+  // actually changing. The extraction_fingerprint check just above already
+  // covers "does completeness reflect the application's current
+  // extracted_fields/acceptances" (and does so from the exact same
+  // fingerprint algorithm, not an approximation of it) — no separate
+  // wall-clock re-check of extracted_fields.updated_at is needed on top of
+  // it, and keeping one caused this application to be stuck showing
+  // COMPLETENESS_STALE forever despite reprocessing genuinely finding
+  // nothing new.
+  if (!latestProcessingRun.data || latestProcessingRun.data.input_fingerprint !== currentInputFingerprint) {
     blocking.push("COMPLETENESS_STALE");
   }
   const mappedFields = Object.fromEntries(
