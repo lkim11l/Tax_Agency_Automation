@@ -96,6 +96,17 @@ const CLAIM_BLOCKING_CODES = new Set([
   "COMPLETENESS_STALE",
 ]);
 
+// validateDocxTemplate's content-safety checks (docx.ts) — when one of these
+// appears in the RENDERED output specifically, it means a substituted field
+// value looks like a mock/test/highlighted placeholder, not that the
+// template file itself is unsafe (reverifyTemplateContent already checked
+// that separately, against the stored file before any values were filled in).
+const OUTPUT_CONTENT_SAFETY_ERRORS = new Set([
+  "MOCK_MARKER_PRESENT",
+  "TEST_REQUISITES_PRESENT",
+  "TEMPLATE_HIGHLIGHT_MARKUP_PRESENT",
+]);
+
 function safeFilename(value: string) {
   return value
     .normalize("NFKC")
@@ -859,8 +870,24 @@ export async function generateContract(input: {
       mimeType: DOCX_MIME,
       requiredPlaceholders: [],
     });
-    if (outputReport.placeholders.length || outputReport.errors.some((item) => item !== "TEMPLATE_HAS_NO_PLACEHOLDERS")) {
-      throw new Error("OUTPUT_VALIDATION_FAILED");
+    const realOutputErrors = outputReport.errors.filter((item) => item !== "TEMPLATE_HAS_NO_PLACEHOLDERS");
+    if (outputReport.placeholders.length || realOutputErrors.length) {
+      // A mock/test/highlight marker appearing only in the RENDERED output
+      // (never in the template file itself, already checked separately by
+      // reverifyTemplateContent) means the application's own substituted
+      // values look like placeholder/demo data (e.g. a bank name of
+      // "тестовый банк") — an actionable, diagnosable content problem, not
+      // an opaque system failure. Route it through the same GENERATION_
+      // BLOCKED channel as every other diagnosable reason instead of
+      // collapsing it into the generic "try again" message, and keep the
+      // specific code in the thrown message so it reaches
+      // audit_events.metadata.safe_error_code (via fail_contract_generation
+      // below) for admin diagnosis too.
+      const contentSafetyError = realOutputErrors.find((item) => OUTPUT_CONTENT_SAFETY_ERRORS.has(item));
+      if (contentSafetyError) {
+        throw new Error(`GENERATION_BLOCKED:OUTPUT_CONTENT_SAFETY_FAILED:${contentSafetyError}`);
+      }
+      throw new Error(`OUTPUT_VALIDATION_FAILED:${realOutputErrors.join(",")}`);
     }
     const filename = safeFilename(`${claim.contract_number}-v${Date.now()}.docx`);
     storagePath = `applications/${input.applicationId}/runs/${claim.run_id}/${filename}`;

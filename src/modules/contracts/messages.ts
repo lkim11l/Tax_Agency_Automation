@@ -6,6 +6,7 @@ import { PLACEHOLDER_LABELS, type ContractPlaceholder } from "./constants";
 // a Next.js server-action runtime).
 
 const REQUIRED_RENDER_VALUE_MISSING_PREFIX = "REQUIRED_RENDER_VALUE_MISSING:";
+const OUTPUT_CONTENT_SAFETY_PREFIX = "OUTPUT_CONTENT_SAFETY_FAILED:";
 const STALE_FINGERPRINT_REASONS = new Set(["SOURCE_FINGERPRINT_MISMATCH", "RULE_SET_MISMATCH"]);
 
 export function missingFieldsMessage(fieldList: string): string {
@@ -28,6 +29,13 @@ export function safeBlockingMessage(reasons: string[], missingRenderFields?: str
   // is_active=true never override this.
   if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
     return "Выбранный шаблон договора больше не соответствует требованиям безопасности. Администратору необходимо загрузить и одобрить новую версию шаблона.";
+  }
+  // The template file itself already passed its own security check — this
+  // means a FIELD VALUE from the application's data rendered into something
+  // that looks like a mock/test placeholder (e.g. a bank name of "тестовый
+  // банк"). The fix is in the application's data, not the template.
+  if (reasons.includes("OUTPUT_CONTENT_SAFETY_FAILED")) {
+    return "В данных заявки есть значения, похожие на тестовые заглушки (например, наименование банка вида «тестовый банк»). Договор с такими данными не формируется — проверьте и исправьте реквизиты в заявке.";
   }
   if (reasons.some((reason) => STALE_FINGERPRINT_REASONS.has(reason))) {
     return "Данные заявки изменились или были проверены по другому шаблону. Комплектность будет пересчитана автоматически.";
@@ -102,9 +110,17 @@ export function safeGenerationErrorMessage(error: unknown): string {
         fields: missingRenderFields,
       });
     }
-    const reasons = rawReasons.map((reason) =>
-      reason.startsWith(REQUIRED_RENDER_VALUE_MISSING_PREFIX) ? "REQUIRED_RENDER_VALUE_MISSING" : reason,
-    );
+    const contentSafetyReason = rawReasons.find((reason) => reason.startsWith(OUTPUT_CONTENT_SAFETY_PREFIX));
+    if (contentSafetyReason) {
+      console.error("generateContract blocked: output content safety check failed", {
+        code: contentSafetyReason.slice(OUTPUT_CONTENT_SAFETY_PREFIX.length),
+      });
+    }
+    const reasons = rawReasons.map((reason) => {
+      if (reason.startsWith(REQUIRED_RENDER_VALUE_MISSING_PREFIX)) return "REQUIRED_RENDER_VALUE_MISSING";
+      if (reason.startsWith(OUTPUT_CONTENT_SAFETY_PREFIX)) return "OUTPUT_CONTENT_SAFETY_FAILED";
+      return reason;
+    });
     if (reasons.includes("TEMPLATE_SECURITY_REVALIDATION_FAILED")) {
       return safeBlockingMessage(reasons, missingRenderFields);
     }
