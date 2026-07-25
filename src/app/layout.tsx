@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 
 import { getLocale } from "@/lib/i18n";
 
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: {
@@ -19,7 +22,7 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   return (
-    <html lang={locale}>
+    <html lang={locale} className={inter.variable}>
       <body>{children}</body>
     </html>
   );

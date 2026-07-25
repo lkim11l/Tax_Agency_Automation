@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { SidebarNav } from "@/components/sidebar-nav";
 import { requireOperationalContextOrRedirect } from "@/lib/auth/context";
 import { getLocale, messages } from "@/lib/i18n";
 
@@ -31,11 +30,7 @@ export default async function InternalLayout({
       <aside className="sidebar">
         <h1>{text.appName}</h1>
         <nav aria-label="Основная навигация">
-          {navigation.map((item) => (
-            <Link href={item.href} key={item.href}>
-              {item.label}
-            </Link>
-          ))}
+          <SidebarNav items={navigation} />
         </nav>
         <form action={signOut}>
           <p className="sidebar-user">{profile.full_name ?? profile.email}</p>

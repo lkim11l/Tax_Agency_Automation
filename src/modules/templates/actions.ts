@@ -111,3 +111,22 @@ export async function templateLifecycleAction(formData: FormData) {
   }
   redirect(`/templates/${parsed.data.templateId}?success=${parsed.data.action}`);
 }
+
+export async function bulkArchiveTemplatesAction(formData: FormData) {
+  const parsed = z.object({
+    templateIds: z.array(z.string().uuid()).min(1),
+  }).safeParse({
+    templateIds: formData.getAll("template_ids"),
+  });
+  if (!parsed.success) redirect("/templates?error=Выберите хотя бы один шаблон.");
+  const results = await Promise.allSettled(
+    parsed.data.templateIds.map((templateId) => setTemplateLifecycle(templateId, "archive")),
+  );
+  const failedCount = results.filter((result) => result.status === "rejected").length;
+  revalidatePath("/templates");
+  if (failedCount > 0) {
+    const okCount = results.length - failedCount;
+    redirect(`/templates?error=${encodeURIComponent(`Архивировано: ${okCount}. Не удалось: ${failedCount}.`)}`);
+  }
+  redirect(`/templates?success=${encodeURIComponent(`Архивировано шаблонов: ${results.length}.`)}`);
+}
